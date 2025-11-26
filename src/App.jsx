@@ -94,20 +94,33 @@ const App = () => {
     return () => worker.terminate();
   }, []);
 
+  const normalizeBusinessLine = (value) => {
+    if (value === undefined || value === null) return undefined;
+    const text = value.toString().trim();
+    if (!text) return undefined;
+    const lower = text.toLowerCase();
+    if (lower.includes('nuevo')) return 'Nuevos';
+    if (lower.includes('usad')) return 'Usados';
+    return text;
+  };
+
   const businessLineOf = (record) =>
-    record.lineaNegocio ||
-    record['Linea de negocio'] ||
-    record['Línea de negocio'] ||
-    record['lineaNegocio'] ||
-    record['Linea Negocio'] ||
-    record['Línea Negocio'];
+    normalizeBusinessLine(
+      record.lineaNegocio ||
+        record['Linea de negocio'] ||
+        record['Línea de negocio'] ||
+        record['lineaNegocio'] ||
+        record['Linea Negocio'] ||
+        record['Línea Negocio'] ||
+        record['linea de negocio'] ||
+        record['línea de negocio'],
+    );
 
   const filteredRecords = useMemo(() => {
     return rawRecords.filter((record) => {
       const matchYear = filters.years.length === 0 || filters.years.includes(record.Año);
       const line = businessLineOf(record);
-      const matchBusiness =
-        filters.businessLine === 'all' || (line && line.toString().toLowerCase() === filters.businessLine.toLowerCase());
+      const matchBusiness = filters.businessLine === 'all' || (line && line === filters.businessLine);
       return matchYear && matchBusiness;
     });
   }, [filters, rawRecords]);
@@ -230,7 +243,9 @@ const App = () => {
           .filter((value) => value !== undefined && value !== null)
           .map((value) => value.toString()),
       ),
-    ).sort((a, b) => a.localeCompare(b));
+    )
+      .filter((value) => value)
+      .sort((a, b) => a.localeCompare(b));
     return { years, businessLines };
   }, [rawRecords]);
 
