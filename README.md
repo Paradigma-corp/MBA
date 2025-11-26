@@ -14,3 +14,7 @@ Este repositorio contiene el dashboard estadístico para DIVEMOTOR. Consulta `BR
 4. El archivo se parsea con PapaParse y se envía al Web Worker para procesar categorías y vendedores; el indicador de **Origen: CSV importado** confirma que se cargó correctamente.
 5. Si quieres volver a los datos demo, pulsa **“Volver a demo”** en la misma tarjeta.
 6. Asegúrate de que tu CSV incluya al menos estas columnas: `Nombre segmentación`, `Vendedor SAP`, `nombreVendedor`, `Unidades UN`, `ingresos`, `costos`, `margen`.
+
+### Filtros rápidos de análisis
+- Tras cargar el CSV (o con los datos demo), usa la tarjeta **“Filtros de análisis”** para acotar los cálculos por Año, Segmentación o Vendedor SAP.
+- El contador de registros filtrados confirma cuántas filas se están usando en las visualizaciones, KPIs y el resumen estadístico.
