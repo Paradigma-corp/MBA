@@ -61,10 +61,6 @@ const SalesSuccessCalculator = () => {
 
   return (
     <div>
-      <p className="text-sm text-slate-600 mb-3">
-        Esta herramienta permite estimar la probabilidad de que un vendedor logre una cierta cantidad de ventas (k)
-        a partir de un número de oportunidades (N) y una tasa de cierre (p).
-      </p>
       <div className="card">
         <h3 className="text-base font-semibold text-slate-900 mb-2">Probabilidad binomial de éxito</h3>
         <p className="text-sm text-slate-600 mb-3">
