@@ -28,6 +28,7 @@ import { performBootstrap } from './utils/bootstrap.js';
 import { computeCorrelations, transformToCategories, transformToSalespeople } from './utils/dataParser.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
+import Modal from './components/ui/Modal.jsx';
 
 const App = () => {
   const [config, setConfig] = useState({
@@ -51,6 +52,7 @@ const App = () => {
     segment: 'all',
     vendor: 'all',
   });
+  const [activeModal, setActiveModal] = useState(null);
   const workerRef = useRef(null);
 
   useEffect(() => {
@@ -165,6 +167,138 @@ const App = () => {
     return { years, segments, vendors };
   }, [rawRecords]);
 
+  const formatNumber = (value, options = {}) =>
+    Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
+
+  const modalDetails = useMemo(
+    () => ({
+      correlations: {
+        title: 'Correlaciones y dispersión',
+        body: (
+          <div className="space-y-4 text-sm text-slate-700">
+            <p>
+              Coeficientes de Pearson calculados con todas las filas filtradas. Los scatter muestran hasta 1,500 puntos para
+              mantener la fluidez, pero las métricas usan el 100% de las filas.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[{
+                label: 'Margen vs Ingreso',
+                value: correlations?.margenIngreso,
+              }, {
+                label: 'Margen vs Costos',
+                value: correlations?.margenCostos,
+              }, {
+                label: 'Ingreso vs Costos',
+                value: correlations?.ingresoCostos,
+              }, {
+                label: 'Margen vs Unidades',
+                value: correlations?.margenUnidades,
+              }].map((item) => (
+                <div key={item.label} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{item.label}</p>
+                    <p className="text-base font-semibold text-slate-900">ρ = {item.value?.toFixed(3) ?? '0.000'}</p>
+                  </div>
+                  <span className="text-xs text-slate-500">Rango [-1, 1]</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">Un valor cercano a ±1 indica una relación lineal fuerte; valores cercanos a 0 sugieren poca relación lineal.</p>
+          </div>
+        ),
+      },
+      stats: {
+        title: 'Resumen estadístico',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Medidas de tendencia central y dispersión con las filas actualmente filtradas.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[{
+                label: 'Margen (%)',
+                data: statSummary.margins,
+                suffix: '%',
+              }, {
+                label: 'Ingresos',
+                data: statSummary.ingresos,
+              }, {
+                label: 'Costos',
+                data: statSummary.costos,
+              }].map((item) => (
+                <div key={item.label} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm space-y-1">
+                  <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{item.label}</p>
+                  <p className="text-base font-semibold text-slate-900">
+                    Media: {item.data.mean ? `${formatNumber(item.data.mean)}${item.suffix ?? ''}` : '—'}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    σ: {item.data.std ? `${formatNumber(item.data.std)}${item.suffix ?? ''}` : '—'} | Min: {formatNumber(item.data.min)}{item.suffix ?? ''} | Max: {formatNumber(item.data.max)}{item.suffix ?? ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">Muestras consideradas: {statSummary.muestras.toLocaleString()}</p>
+          </div>
+        ),
+      },
+      categories: {
+        title: 'Detalle por categoría',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Sumatoria de ingresos, costos y margen por categoría después de aplicar los filtros activos.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {categories.slice(0, 6).map((cat) => (
+                <div key={cat.name} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-900">{cat.name}</p>
+                    <span className="text-[11px] text-slate-500">{cat.n?.toLocaleString() ?? 0} filas</span>
+                  </div>
+                  <p className="text-xs text-slate-500">Margen medio: {formatNumber(cat.margen, { maximumFractionDigits: 1 })}% | σ: {formatNumber(cat.stdDev)}</p>
+                  <p className="text-sm text-slate-700 mt-1">Ingresos: {formatNumber(cat.totalIngresos)} · Costos: {formatNumber(cat.totalCostos)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">Totales: ingresos {formatNumber(totals.totalIngresos)} | costos {formatNumber(totals.totalCostos)} | margen {formatNumber(totals.totalMargen)}</p>
+          </div>
+        ),
+      },
+      dispersion: {
+        title: 'Dispersión y relación ingreso-margen',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Los puntos provienen de la agregación por categoría; el intervalo muestra el bootstrap 95% aplicado a cada segmento.</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-600">
+              <li>Útil para detectar segmentos con margen alto pero alto costo.</li>
+              <li>Haz hover sobre los puntos para ver ingreso, costo y margen estimado.</li>
+              <li>Los filtros de año, segmento y vendedor restringen la nube de puntos.</li>
+            </ul>
+          </div>
+        ),
+      },
+      boxplot: {
+        title: 'Distribución de márgenes',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Boxplot por categoría con mediana, cuartiles y valores extremos para márgenes.</p>
+            <p className="text-slate-600">Sirve para identificar outliers y amplitud de variación entre segmentos antes de fijar metas.</p>
+          </div>
+        ),
+      },
+      worker: {
+        title: 'Procesamiento con Web Worker',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Las transformaciones, correlaciones y bootstrap se ejecutan fuera del hilo principal para evitar bloqueos.</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-600">
+              <li>CSV de 10,741 filas se parsea y agrupa en background.</li>
+              <li>Las visualizaciones se actualizan cuando el worker responde con categorías, vendedores y correlaciones.</li>
+              <li>Puedes volver a datos demo sin recargar la página.</li>
+            </ul>
+          </div>
+        ),
+      },
+    }),
+    [categories, correlations, statSummary, totals],
+  );
+
   const nav = [
     { label: 'Visión general', icon: LayoutDashboard },
     { label: 'Márgenes', icon: BarChart3 },
@@ -172,6 +306,8 @@ const App = () => {
     { label: 'Proyecciones', icon: LineChart },
     { label: 'Categorias', icon: Layers },
   ];
+
+  const modalConfig = activeModal ? modalDetails[activeModal] : null;
 
   return (
     <div className="min-h-screen text-slate-900">
@@ -399,23 +535,30 @@ const App = () => {
               })}
             </div>
 
-            <div className="card border border-slate-200/80 shadow-md">
-              <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-xs uppercase text-slate-500">Correlaciones</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Relación entre márgenes, ingresos y costos</h3>
-                  <p className="text-sm text-slate-600">Coeficientes de Pearson recalculados con los filtros activos.</p>
-                  <p className="text-xs text-slate-500 mt-1">Las correlaciones se calculan sobre todas las filas filtradas; solo se recortan los scatter a 1,500 puntos para mantener la fluidez visual sin muestrear los cálculos.</p>
+              <div className="card border border-slate-200/80 shadow-md">
+                <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                  <div>
+                    <p className="text-xs uppercase text-slate-500">Correlaciones</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Relación entre márgenes, ingresos y costos</h3>
+                    <p className="text-sm text-slate-600">Coeficientes de Pearson recalculados con los filtros activos.</p>
+                    <p className="text-xs text-slate-500 mt-1">Las correlaciones se calculan sobre todas las filas filtradas; solo se recortan los scatter a 1,500 puntos para mantener la fluidez visual sin muestrear los cálculos.</p>
+                  </div>
+                  <div className="flex flex-col gap-1 text-xs text-slate-600">
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
+                      <LineChart size={14} /> ρ(margen, ingreso): {correlations?.margenIngreso?.toFixed(2) ?? '0.00'}
+                    </span>
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
+                      <LineChart size={14} /> ρ(margen, costos): {correlations?.margenCostos?.toFixed(2) ?? '0.00'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('correlations')}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:border-indigo-200 hover:text-indigo-700"
+                    >
+                      Ver popup detallado
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-1 text-xs text-slate-600">
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
-                    <LineChart size={14} /> ρ(margen, ingreso): {correlations?.margenIngreso?.toFixed(2) ?? '0.00'}
-                  </span>
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
-                    <LineChart size={14} /> ρ(margen, costos): {correlations?.margenCostos?.toFixed(2) ?? '0.00'}
-                  </span>
-                </div>
-              </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.1fr] gap-4">
                 <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
@@ -450,9 +593,18 @@ const App = () => {
                   <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
                   <h3 className="text-lg font-semibold text-slate-900">Tendencia central y dispersión</h3>
                 </div>
-                <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                  <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('stats')}
+                    className="text-sm text-indigo-600 hover:text-indigo-700"
+                  >
+                    Ver popup
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[{
@@ -509,6 +661,13 @@ const App = () => {
                 <span className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
                   <ArrowUpRight size={14} /> Seguimiento ejecutivo
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('categories')}
+                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  Ver popup
+                </button>
               </div>
               <BarChartComponent data={categories} />
             </div>
@@ -518,6 +677,13 @@ const App = () => {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-base font-semibold text-slate-900">Dispersión ingreso vs margen</h3>
                   <span className="text-xs text-slate-500">Bootstrap 95%</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('dispersion')}
+                    className="text-xs text-indigo-600 hover:text-indigo-700"
+                  >
+                    Ver popup
+                  </button>
                 </div>
                 <ScatterPlot data={categories} />
               </div>
@@ -525,6 +691,13 @@ const App = () => {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
                   <span className="text-xs text-slate-500">Outliers incluidos</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('boxplot')}
+                    className="text-xs text-indigo-600 hover:text-indigo-700"
+                  >
+                    Ver popup
+                  </button>
                 </div>
                 <BoxPlot data={categories} />
               </div>
@@ -559,10 +732,20 @@ const App = () => {
               <div className="px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-2">
                 <ShieldCheck size={16} /> Estabilidad garantizada
               </div>
+              <button
+                type="button"
+                onClick={() => setActiveModal('worker')}
+                className="text-sm text-indigo-600 hover:text-indigo-700"
+              >
+                Ver detalle en popup
+              </button>
             </div>
           </div>
         </div>
       </div>
+      <Modal open={!!modalConfig} title={modalConfig?.title} onClose={() => setActiveModal(null)}>
+        {modalConfig?.body}
+      </Modal>
     </div>
   );
 };

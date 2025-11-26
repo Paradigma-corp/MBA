@@ -22,29 +22,67 @@ const CorrelationBars = ({ correlations }) => {
   ];
 
   return (
-    <div style={{ height: 280 }}>
+    <div className="h-72">
       <ResponsiveBar
         data={data}
         keys={["correlacion"]}
         indexBy="pair"
         layout="horizontal"
-        margin={{ top: 10, right: 20, bottom: 40, left: 140 }}
-        padding={0.35}
+        margin={{ top: 20, right: 28, bottom: 46, left: 160 }}
+        padding={0.4}
         colors={(bar) => (bar.data.correlacion >= 0 ? '#0ea5e9' : '#ef4444')}
         minValue={-1}
         maxValue={1}
-        axisBottom={{ legend: 'Coeficiente de correlación', legendOffset: 32, legendPosition: 'middle' }}
-        axisLeft={null}
+        axisBottom={{
+          legend: 'Coeficiente de correlación',
+          legendOffset: 36,
+          legendPosition: 'middle',
+          tickPadding: 8,
+          tickSize: 0,
+          format: (value) => value.toFixed(1),
+        }}
+        axisLeft={{
+          tickSize: 0,
+          tickPadding: 10,
+        }}
         enableGridY={false}
+        gridXValues={[-1, -0.5, 0, 0.5, 1]}
+        markers={[{
+          axis: 'x',
+          value: 0,
+          lineStyle: { stroke: '#cbd5e1', strokeWidth: 2, strokeDasharray: '4 4' },
+        }]}
         label={(bar) => bar.value.toFixed(2)}
         labelSkipWidth={12}
         labelSkipHeight={12}
+        labelTextColor="#0f172a"
         theme={{
           textColor: '#0f172a',
           fontSize: 12,
+          grid: {
+            line: {
+              stroke: '#e2e8f0',
+              strokeWidth: 1,
+            },
+          },
+          axis: {
+            ticks: {
+              text: {
+                fontSize: 12,
+                fill: '#475569',
+              },
+            },
+            legend: {
+              text: {
+                fontSize: 12,
+                fill: '#1e293b',
+                fontWeight: 600,
+              },
+            },
+          },
         }}
         tooltip={({ data, value }) => (
-          <div className="bg-white/95 rounded-lg shadow px-3 py-2 text-sm text-slate-800">
+          <div className="bg-white/95 rounded-lg shadow-lg px-3 py-2 text-sm text-slate-800 border border-slate-200">
             <p className="font-semibold">{data.pair}</p>
             <p>ρ: {value.toFixed(3)}</p>
           </div>
