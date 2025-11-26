@@ -1,7 +1,34 @@
+export const normalizeBusinessLine = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const text = value.toString().trim();
+  if (!text) return undefined;
+  const lower = text.toLowerCase();
+
+  if (lower.includes('auto')) return 'Automóviles';
+  if (lower.includes('camion')) return 'Camiones';
+  if (lower.includes('bus')) return 'Buses';
+  if (lower.includes('van')) return 'Vans';
+  if (lower.includes('nuevo')) return 'Nuevos';
+  if (lower.includes('usad')) return 'Usados';
+
+  return text;
+};
+
 const mapRecord = (record) => ({
   ...record,
   segmentacionIGD: record['Nombre segmentación'],
   vendedorSAP: record['Vendedor SAP'],
+  businessLine:
+    normalizeBusinessLine(
+      record.lineaNegocio ||
+        record['Linea de negocio'] ||
+        record['Línea de negocio'] ||
+        record['lineaNegocio'] ||
+        record['Linea Negocio'] ||
+        record['Línea Negocio'] ||
+        record['linea de negocio'] ||
+        record['línea de negocio'],
+    ) || undefined,
 });
 
 const mean = (values) => values.reduce((acc, val) => acc + val, 0) / (values.length || 1);
@@ -43,10 +70,12 @@ export const computeCorrelations = (records) => ({
 export const transformToCategories = (records) => {
   const mapped = records.map(mapRecord);
   const groups = mapped.reduce((acc, record) => {
-    if (!acc[record.segmentacionIGD]) {
-      acc[record.segmentacionIGD] = [];
+    const groupKey = record.businessLine || record.segmentacionIGD;
+    if (!groupKey) return acc;
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
     }
-    acc[record.segmentacionIGD].push(record);
+    acc[groupKey].push(record);
     return acc;
   }, {});
 

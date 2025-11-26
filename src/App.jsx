@@ -28,7 +28,12 @@ import SamplingCalculator from './components/calculators/SamplingCalculator.jsx'
 import WaterfallCalculator from './components/calculators/WaterfallCalculator.jsx';
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
-import { computeCorrelations, transformToCategories, transformToSalespeople } from './utils/dataParser.js';
+import {
+  computeCorrelations,
+  normalizeBusinessLine,
+  transformToCategories,
+  transformToSalespeople,
+} from './utils/dataParser.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
@@ -93,16 +98,6 @@ const App = () => {
     setWorkerReady(true);
     return () => worker.terminate();
   }, []);
-
-  const normalizeBusinessLine = (value) => {
-    if (value === undefined || value === null) return undefined;
-    const text = value.toString().trim();
-    if (!text) return undefined;
-    const lower = text.toLowerCase();
-    if (lower.includes('nuevo')) return 'Nuevos';
-    if (lower.includes('usad')) return 'Usados';
-    return text;
-  };
 
   const businessLineOf = (record) =>
     normalizeBusinessLine(

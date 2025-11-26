@@ -56,9 +56,11 @@ const baseDemoRecords = [
   },
 ];
 
+const demoBusinessLines = ['Automóviles', 'Camiones', 'Vans', 'Buses'];
+
 export const demoRecords = baseDemoRecords.map((record, index) => ({
   ...record,
-  lineaNegocio: record.lineaNegocio || (index % 3 === 0 ? 'Usados' : 'Nuevos'),
+  lineaNegocio: record.lineaNegocio || demoBusinessLines[index % demoBusinessLines.length],
 }));
 
 export const demoCategories = [
