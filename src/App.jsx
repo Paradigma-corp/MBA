@@ -36,27 +36,24 @@ import Modal from './components/ui/Modal.jsx';
 const heroSlides = [
   {
     title: 'Automóviles',
-    subtitle: 'Sedanes y SUVs conectados para la dirección y flotas ejecutivas.',
+    subtitle: 'Mercedes-Benz EQS y Clase E para dirección y flotas ejecutivas.',
     image:
-      'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1600&q=80&sat=-10',
+      'https://upload.wikimedia.org/wikipedia/commons/4/46/2022_Mercedes-Benz_EQS_450%2B_AMG_Line.jpg',
   },
   {
     title: 'Camiones',
-    subtitle: 'Movilidad pesada optimizada para entrega puntual y rentabilidad.',
-    image:
-      'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1600&q=80&sat=-30',
+    subtitle: 'Tractos Mercedes-Benz Actros listos para logística pesada confiable.',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/1/12/2018_Mercedes-Benz_Actros_2545.jpg',
   },
   {
     title: 'Vans',
-    subtitle: 'Versatilidad para cargas ligeras y transporte ejecutivo en ciudad.',
-    image:
-      'https://images.unsplash.com/photo-1525609004556-c46c7d6cf023?auto=format&fit=crop&w=1600&q=80&sat=-20',
+    subtitle: 'Mercedes-Benz Sprinter para reparto urbano y transporte ejecutivo.',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/2/28/2018_Mercedes-Benz_Sprinter_314CDI_LWB.jpg',
   },
   {
     title: 'Buses',
-    subtitle: 'Cobertura nacional con confort y seguridad para transporte de pasajeros.',
-    image:
-      'https://images.unsplash.com/photo-1502872062231-417fc9c01314?auto=format&fit=crop&w=1600&q=80&sat=-20',
+    subtitle: 'Mercedes-Benz Citaro para rutas con confort y eficiencia.',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/5/50/Mercedes-Benz_Citaro_in_RTB_depots.jpg',
   },
 ];
 
