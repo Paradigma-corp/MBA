@@ -21,4 +21,4 @@ Este repositorio contiene el dashboard estadístico para DIVEMOTOR. Consulta `BR
 
 ### Correlaciones y dispersión
 - La tarjeta **“Correlaciones”** muestra los coeficientes de Pearson para margen con ingresos, costos y unidades, recalculados según los filtros activos.
-- Los dos gráficos de dispersión exhiben la relación margen-ingresos y margen-costos a nivel de fila (hasta 1,500 puntos para mantener la UI fluida).
+- Los dos gráficos de dispersión exhiben la relación margen-ingresos y margen-costos a nivel de fila (hasta 1,500 puntos para mantener la UI fluida), pero las correlaciones se calculan con el 100% de las filas filtradas (sin muestreo).

@@ -405,6 +405,7 @@ const App = () => {
                   <p className="text-xs uppercase text-slate-500">Correlaciones</p>
                   <h3 className="text-lg font-semibold text-slate-900">Relación entre márgenes, ingresos y costos</h3>
                   <p className="text-sm text-slate-600">Coeficientes de Pearson recalculados con los filtros activos.</p>
+                  <p className="text-xs text-slate-500 mt-1">Las correlaciones se calculan sobre todas las filas filtradas; solo se recortan los scatter a 1,500 puntos para mantener la fluidez visual sin muestrear los cálculos.</p>
                 </div>
                 <div className="flex flex-col gap-1 text-xs text-slate-600">
                   <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
