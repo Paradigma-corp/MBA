@@ -9,16 +9,40 @@ const formatLabel = (key) => {
   return key;
 };
 
-const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2' }) => {
-  const trimmed = (records || []).slice(0, 1500);
-  const points = trimmed
+const hexToRgb = (hex) => {
+  const normalized = hex.replace('#', '');
+  const bigint = parseInt(normalized, 16);
+  return {
+    r: (bigint >> 16) & 255,
+    g: (bigint >> 8) & 255,
+    b: bigint & 255,
+  };
+};
+
+const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2', maxPoints = 1500, height = 320 }) => {
+  const trimmed = maxPoints ? (records || []).slice(0, maxPoints) : records || [];
+  const bucketed = trimmed
     .map((record, index) => ({
       id: index,
       x: Number(record[xKey]),
       y: Number(record[yKey]),
       label: record.nombreVendedor || record['Vendedor SAP'] || record['Nombre segmentación'],
     }))
-    .filter((d) => Number.isFinite(d.x) && Number.isFinite(d.y));
+    .filter((d) => Number.isFinite(d.x) && Number.isFinite(d.y))
+    .reduce((acc, point) => {
+      const bucketX = Math.round(point.x * 10) / 10;
+      const bucketY = Math.round(point.y * 10) / 10;
+      const key = `${bucketX}-${bucketY}`;
+      if (!acc.has(key)) {
+        acc.set(key, { ...point, x: bucketX, y: bucketY, count: 0, labels: [] });
+      }
+      const bucket = acc.get(key);
+      bucket.count += 1;
+      if (bucket.labels.length < 3 && point.label) bucket.labels.push(point.label);
+      return acc;
+    }, new Map());
+
+  const points = Array.from(bucketed.values());
 
   const regressionLine = useMemo(() => {
     if (points.length < 2) return null;
@@ -88,16 +112,25 @@ const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2' }) => {
   );
 
   return (
-    <div style={{ height: 320 }}>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <span>Intensidad y tamaño según repeticiones en la nube (agrupadas a 0.1 unidad)</span>
+        <span>{points.length.toLocaleString()} celdas únicas · {trimmed.length.toLocaleString()} puntos</span>
+      </div>
+      <div style={{ height }}>
       <ResponsiveScatterPlot
         data={[{ id: `${xKey}-${yKey}`, data: points }]}
         margin={{ top: 30, right: 40, bottom: 50, left: 65 }}
         xScale={{ type: 'linear', min: 'auto', max: 'auto' }}
         yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
-        colors={[color]}
-        nodeSize={9}
-        nodeOpacity={0.28}
-        blendMode="normal"
+        colors={({ data }) => {
+          const { r, g, b } = hexToRgb(color);
+          const alpha = Math.min(0.2 + (data.count || 1) * 0.08, 0.9);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }}
+        nodeSize={(node) => 6 + Math.log1p(node.data.count || 1) * 4}
+        nodeOpacity={1}
+        blendMode="multiply"
         axisBottom={{
           tickSize: 6,
           tickPadding: 6,
@@ -121,6 +154,7 @@ const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2' }) => {
             <p>
               {formatLabel(yKey)}: {node.data.yFormatted}
             </p>
+            <p className="text-xs text-slate-500 mt-1">Repeticiones en esta celda: {node.data.count ?? 1}</p>
           </div>
         )}
         theme={theme}
@@ -147,6 +181,7 @@ const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2' }) => {
           'legends',
         ]}
       />
+      </div>
     </div>
   );
 };

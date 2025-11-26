@@ -330,6 +330,31 @@ const App = () => {
           </div>
         ),
       },
+      scatterIngreso: {
+        title: 'Margen vs Ingresos — versión completa',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Se muestra la nube completa con más puntos y mayor contraste según la cantidad de repeticiones.</p>
+            <CorrelationScatter records={filteredRecords} xKey="ingresos" yKey="margen" maxPoints={6000} height={420} />
+          </div>
+        ),
+      },
+      scatterCostos: {
+        title: 'Margen vs Costos — versión completa',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Haz zoom visual en la dispersión de costos versus margen con intensidad por celdas repetidas.</p>
+            <CorrelationScatter
+              records={filteredRecords}
+              xKey="costos"
+              yKey="margen"
+              color="#0c89aa"
+              maxPoints={6000}
+              height={420}
+            />
+          </div>
+        ),
+      },
       categories: {
         title: 'Detalle por categoría',
         body: (
@@ -374,7 +399,7 @@ const App = () => {
         ),
       },
     }),
-    [categories, correlations, statSummary, totals],
+    [categories, correlations, filteredRecords, statSummary, totals],
   );
 
   const nav = [
@@ -756,16 +781,34 @@ const App = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-slate-900">Margen vs Ingresos</p>
-                      <span className="text-[11px] text-slate-500">Scatter filtrado</span>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Margen vs Ingresos</p>
+                        <p className="text-[11px] text-slate-500">Tamaño e intensidad según repeticiones de puntos</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveModal('scatterIngreso')}
+                        className="text-[11px] px-3 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-celeste-200 hover:text-celeste-700"
+                      >
+                        Versión completa
+                      </button>
                     </div>
                     <CorrelationScatter records={filteredRecords} xKey="ingresos" yKey="margen" />
                   </div>
                   <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-slate-900">Margen vs Costos</p>
-                      <span className="text-[11px] text-slate-500">Scatter filtrado</span>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Margen vs Costos</p>
+                        <p className="text-[11px] text-slate-500">Color y tamaño refuerzan la densidad de repeticiones</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveModal('scatterCostos')}
+                        className="text-[11px] px-3 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-celeste-200 hover:text-celeste-700"
+                      >
+                        Versión completa
+                      </button>
                     </div>
                     <CorrelationScatter records={filteredRecords} xKey="costos" yKey="margen" color="#0c89aa" />
                   </div>
