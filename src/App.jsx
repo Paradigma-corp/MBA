@@ -6,9 +6,12 @@ import {
   BarChart3,
   CloudUpload,
   Home,
+  MapPin,
+  Menu,
   LayoutDashboard,
   Layers,
   LineChart,
+  Phone,
   Percent,
   RefreshCw,
   ShieldCheck,
@@ -29,6 +32,33 @@ import { computeCorrelations, transformToCategories, transformToSalespeople } fr
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
+
+const heroSlides = [
+  {
+    title: 'Automóviles',
+    subtitle: 'Sedanes y SUVs conectados para la dirección y flotas ejecutivas.',
+    image:
+      'https://images.unsplash.com/photo-1503736334956-4c8f8e92946d?auto=format&fit=crop&w=1600&q=80&sat=-10',
+  },
+  {
+    title: 'Camiones',
+    subtitle: 'Movilidad pesada optimizada para entrega puntual y rentabilidad.',
+    image:
+      'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1600&q=80&sat=-30',
+  },
+  {
+    title: 'Vans',
+    subtitle: 'Versatilidad para cargas ligeras y transporte ejecutivo en ciudad.',
+    image:
+      'https://images.unsplash.com/photo-1525609004556-c46c7d6cf023?auto=format&fit=crop&w=1600&q=80&sat=-20',
+  },
+  {
+    title: 'Buses',
+    subtitle: 'Cobertura nacional con confort y seguridad para transporte de pasajeros.',
+    image:
+      'https://images.unsplash.com/photo-1502872062231-417fc9c01314?auto=format&fit=crop&w=1600&q=80&sat=-20',
+  },
+];
 
 const App = () => {
   const [config, setConfig] = useState({
@@ -51,6 +81,7 @@ const App = () => {
     years: [],
     businessLine: 'all',
   });
+  const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
   const workerRef = useRef(null);
 
@@ -324,7 +355,55 @@ const App = () => {
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
 
   return (
-    <div className="min-h-screen text-slate-900">
+    <div className="min-h-screen text-slate-900 bg-[#f6f7f9]">
+      <div className="bg-black text-white border-b border-black/60">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              className="h-10 w-10 rounded-full border border-white/15 flex items-center justify-center hover:bg-white/10 transition"
+              aria-label="Abrir menú"
+            >
+              <Menu size={18} />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-full bg-white text-black font-semibold flex items-center justify-center">
+                D
+              </div>
+              <div>
+                <p className="text-xs text-slate-200 uppercase tracking-[0.18em]">Divemotor</p>
+                <p className="text-sm font-semibold">Analytics & Fleet</p>
+              </div>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-6 text-sm">
+            <span className="hover:text-celeste-200 cursor-pointer">Vehículos</span>
+            <span className="hover:text-celeste-200 cursor-pointer">Camiones</span>
+            <span className="hover:text-celeste-200 cursor-pointer">Vans</span>
+            <span className="hover:text-celeste-200 cursor-pointer">Buses</span>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-full bg-white text-black font-semibold shadow-sm hover:-translate-y-0.5 transition"
+            >
+              Reserva tu cita en taller
+            </button>
+          </div>
+        </div>
+      </div>
+      <div className="bg-white border-b border-slate-200">
+        <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-2"><MapPin size={16} className="text-black" /> Estamos en todo el Perú</span>
+            <span className="hidden md:inline-flex items-center gap-2"><Phone size={16} className="text-black" /> 0801-00008</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
+              Datos {dataSource === 'demo' ? 'demo' : 'CSV importado'}
+            </span>
+            <span className="text-xs text-slate-500">Procesando 10,741 filas sin muestreo</span>
+          </div>
+        </div>
+      </div>
       <div className="flex min-h-screen">
         <aside className="hidden lg:flex w-64 bg-white/85 backdrop-blur-xl border-r border-slate-200/80 flex-col p-5 gap-6 shadow-md shadow-slate-200/60">
           <div className="flex items-center gap-3">
@@ -369,30 +448,64 @@ const App = () => {
             <Header />
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="xl:col-span-2 card bg-gradient-to-r from-black to-celeste-500 text-white shadow-xl border-0 relative overflow-hidden">
-                <div className="absolute inset-y-0 right-0 w-40 bg-white/20 blur-3xl" />
-                <div className="space-y-3 relative">
-                  <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-semibold backdrop-blur-md">
-                    <RefreshCw size={14} /> Sincronizado con worker
-                  </p>
-                  <h2 className="text-2xl font-semibold">¡Listo para presentar a la dirección!</h2>
-                  <p className="text-sm text-white/90 max-w-2xl">
-                    Procesamiento paralelo, bootstrapping de 10k iteraciones y visuales ejecutivos listos para las 10,741 filas completas.
-                  </p>
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    <span className="px-3 py-2 rounded-2xl bg-white/15 backdrop-blur-md flex items-center gap-2">
-                      <Activity size={15} /> Margen medio {stats.promedioMargen.toFixed(0)}%
-                    </span>
-                    <span className="px-3 py-2 rounded-2xl bg-white/15 backdrop-blur-md flex items-center gap-2">
-                      <Users size={15} /> {stats.vendedores} vendedores
-                    </span>
+              <div className="xl:col-span-3 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+                <div className="relative h-[320px] w-full">
+                  <img src={heroSlides[activeSlide].image} alt={heroSlides[activeSlide].title} className="absolute inset-0 w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-between p-6 lg:p-8 text-white">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-2 max-w-2xl">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-white/80">Divemotor • Inteligencia comercial</p>
+                        <h2 className="text-3xl lg:text-4xl font-semibold leading-tight">{heroSlides[activeSlide].title}</h2>
+                        <p className="text-sm lg:text-base text-white/85">{heroSlides[activeSlide].subtitle}</p>
+                      </div>
+                      <div className="px-4 py-2 rounded-full bg-white/15 border border-white/20 backdrop-blur-sm inline-flex items-center gap-2 text-xs font-semibold">
+                        <RefreshCw size={14} /> {dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
+                        <Activity size={16} /> Margen medio {stats.promedioMargen.toFixed(0)}%
+                      </div>
+                      <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
+                        <Users size={16} /> {stats.vendedores} vendedores
+                      </div>
+                      <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
+                        <BarChart3 size={16} /> {stats.categorias} categorías
+                      </div>
+                    </div>
                   </div>
                 </div>
+                <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex flex-wrap items-center gap-3">
+                  <span className="text-xs uppercase tracking-[0.16em] text-slate-500">Líneas de negocio</span>
+                  {heroSlides.map((slide, index) => {
+                    const active = index === activeSlide;
+                    return (
+                      <button
+                        key={slide.title}
+                        type="button"
+                        onClick={() => setActiveSlide(index)}
+                        className={`flex items-center gap-3 rounded-2xl border px-2 py-1.5 text-left shadow-sm transition ${
+                          active ? 'bg-white border-black text-black' : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                        }`}
+                      >
+                        <div className="h-12 w-20 rounded-xl overflow-hidden bg-slate-200">
+                          <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold leading-tight">{slide.title}</p>
+                          <p className="text-[11px] text-slate-500">Explorar</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="card bg-white/90 border border-slate-200/80">
+
+              <div className="card bg-white border border-slate-200/80">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-10 w-10 rounded-2xl bg-celeste-50 text-celeste-700 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-xl bg-black text-white flex items-center justify-center">
                       <CloudUpload size={18} />
                     </div>
                     <div>
@@ -404,19 +517,19 @@ const App = () => {
                 </div>
                 <p className="text-sm text-slate-600 mb-4">Procesa en background y cambia instantáneamente entre demo y la base completa.</p>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-celeste-600 text-white rounded-xl border border-celeste-600 cursor-pointer shadow-sm hover:bg-celeste-700 transition">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-black text-white rounded-xl border border-black cursor-pointer shadow-sm hover:-translate-y-0.5 transition">
                     <input type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
                     <span className="text-sm font-medium">Seleccionar CSV</span>
                   </label>
                   <button
                     type="button"
                     onClick={resetDemo}
-                    className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-slate-300 transition"
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-300 transition"
                   >
                     Volver a demo
                   </button>
                 </div>
-                <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
                   Web Worker aislado evita bloqueos de UI al transformar las 10,741 filas. Bootstrap configurable mantiene la precisión.
                 </div>
                 <div className="mt-3 p-3 rounded-2xl bg-slate-900/5 border border-slate-200 text-xs text-slate-600 space-y-1">
