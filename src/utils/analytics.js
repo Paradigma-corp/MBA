@@ -74,7 +74,8 @@ const interpretCorrelationStrength = (value) => {
 };
 
 export const computeCategoryCorrelations = (records) => {
-  const series = buildCategorySeries(records);
+  const safeRecords = Array.isArray(records) ? records : [];
+  const series = buildCategorySeries(safeRecords);
   const categories = Object.keys(series);
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
   const matrices = {};
@@ -93,7 +94,8 @@ export const computeCategoryCorrelations = (records) => {
 };
 
 export const computeOneVsManyCorrelations = (records) => {
-  const series = buildCategorySeries(records);
+  const safeRecords = Array.isArray(records) ? records : [];
+  const series = buildCategorySeries(safeRecords);
   const categories = Object.keys(series);
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
 
@@ -204,10 +206,11 @@ const describeImpact = (beta, maxAbsBeta) => {
 };
 
 export const buildRegressionModel = (records) => {
-  const betas = buildCategoryMeans(records);
-  const rSquared = computeRSquared(records, betas);
+  const safeRecords = Array.isArray(records) ? records : [];
+  const betas = buildCategoryMeans(safeRecords);
+  const rSquared = computeRSquared(safeRecords, betas);
   const betasWithoutAuto = { ...betas, Automóviles: 0 };
-  const rSquaredWithoutAuto = computeRSquared(records, betasWithoutAuto);
+  const rSquaredWithoutAuto = computeRSquared(safeRecords, betasWithoutAuto);
 
   const betaValues = Object.values(betas);
   const maxAbsBeta = betaValues.reduce((max, value) => Math.max(max, Math.abs(value)), 0) || 1;
@@ -250,9 +253,10 @@ export const buildRegressionModel = (records) => {
 };
 
 export const recomputeModelWithBetas = (records, betas) => {
-  const rSquared = computeRSquared(records, betas);
+  const safeRecords = Array.isArray(records) ? records : [];
+  const rSquared = computeRSquared(safeRecords, betas);
   const betasWithoutAuto = { ...betas, Automóviles: 0 };
-  const rSquaredWithoutAuto = computeRSquared(records, betasWithoutAuto);
+  const rSquaredWithoutAuto = computeRSquared(safeRecords, betasWithoutAuto);
   const averageOtherBeta = (betas.Vans + betas.Camiones + betas.Buses) / 3;
   const deltaR2 = rSquared - rSquaredWithoutAuto;
 
