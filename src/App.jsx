@@ -207,6 +207,15 @@ const App = () => {
                 <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
                   Web Worker aislado evita bloqueos de UI al transformar las 10,741 filas. Bootstrap configurable mantiene la precisión.
                 </div>
+                <div className="mt-3 p-3 rounded-2xl bg-slate-900/5 border border-slate-200 text-xs text-slate-600 space-y-1">
+                  <p className="font-semibold text-slate-900 text-sm">¿Cómo cargar la base de datos?</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Haz clic en <span className="font-semibold">“Seleccionar CSV”</span> y elige tu archivo <span className="font-semibold">BBDD x.csv</span>.</li>
+                    <li>Espera el indicador verde <span className="font-semibold">CSV importado</span>; el worker procesará categorías y vendedores.</li>
+                    <li>Usa <span className="font-semibold">“Volver a demo”</span> si necesitas regresar a los datos de ejemplo.</li>
+                  </ol>
+                  <p className="text-[11px] text-slate-500">Formato requerido: columnas "Nombre segmentación", "Vendedor SAP", "nombreVendedor", "Unidades UN", "ingresos", "costos", "margen".</p>
+                </div>
               </div>
             </div>
 

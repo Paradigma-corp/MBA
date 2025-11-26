@@ -13,3 +13,4 @@ Este repositorio contiene el dashboard estadístico para DIVEMOTOR. Consulta `BR
 3. Escoge tu archivo `BBDD x.csv` (o cualquier CSV con las columnas indicadas en `BRIEFING.md`).
 4. El archivo se parsea con PapaParse y se envía al Web Worker para procesar categorías y vendedores; el indicador de **Origen: CSV importado** confirma que se cargó correctamente.
 5. Si quieres volver a los datos demo, pulsa **“Volver a demo”** en la misma tarjeta.
+6. Asegúrate de que tu CSV incluya al menos estas columnas: `Nombre segmentación`, `Vendedor SAP`, `nombreVendedor`, `Unidades UN`, `ingresos`, `costos`, `margen`.
