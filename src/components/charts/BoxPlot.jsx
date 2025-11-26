@@ -2,11 +2,26 @@ import React from 'react';
 import { ResponsiveBoxPlot } from '@nivo/boxplot';
 
 const BoxPlot = ({ data }) => {
-  const items = data.map((item) => ({
-    group: 'Margen',
-    subgroup: item.name,
-    observations: item.records?.map((r) => Number(r.margen) || 0) || [],
-  }));
+  const items = data.map((item) => {
+    const observations = item.margins
+      ? item.margins.filter((value) => Number.isFinite(value)).map((value) => Number(value))
+      : item.records?.map((r) => Number(r.margen) || 0) || [];
+    return {
+      group: 'Margen',
+      subgroup: item.name,
+      observations,
+    };
+  });
+
+  const hasData = items.some((item) => item.observations.length > 0);
+
+  if (!hasData) {
+    return (
+      <div className="h-[320px] flex items-center justify-center text-sm text-slate-500">
+        Sin datos de márgenes para el filtro actual.
+      </div>
+    );
+  }
 
   return (
     <div style={{ height: 320 }}>

@@ -171,16 +171,21 @@ const App = () => {
   );
 
   const statSummary = useMemo(() => {
-    const allMarginPercents = categories.flatMap((cat) =>
-      (cat.records || []).map((item) => {
-        const ingresos = Number(item.ingresos) || 0;
-        const margen = Number(item.margen) || 0;
-        if (!Number.isFinite(ingresos) || ingresos === 0) return 0;
-        return (margen / ingresos) * 100;
-      }),
-    );
-    const allIngresos = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.ingresos) || 0));
-    const allCostos = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.costos) || 0));
+    const marginPercents = [];
+    const ingresos = [];
+    const costos = [];
+
+    filteredRecords.forEach((item) => {
+      const ingreso = Number(item.ingresos);
+      const costo = Number(item.costos);
+      const margen = Number(item.margen);
+
+      if (Number.isFinite(ingreso)) ingresos.push(ingreso);
+      if (Number.isFinite(costo)) costos.push(costo);
+      if (Number.isFinite(ingreso) && ingreso !== 0 && Number.isFinite(margen)) {
+        marginPercents.push((margen / ingreso) * 100);
+      }
+    });
 
     const calc = (values) => {
       if (!values.length) return { mean: 0, std: 0, min: 0, max: 0 };
@@ -195,12 +200,26 @@ const App = () => {
     };
 
     return {
-      marginPct: calc(allMarginPercents),
-      ingresos: calc(allIngresos),
-      costos: calc(allCostos),
-      muestras: allMarginPercents.length,
+      marginPct: calc(marginPercents),
+      ingresos: calc(ingresos),
+      costos: calc(costos),
+      muestras: marginPercents.length,
     };
-  }, [categories]);
+  }, [filteredRecords]);
+
+  const boxPlotData = useMemo(() => {
+    const grouped = filteredRecords.reduce((acc, record) => {
+      const name = record['Nombre segmentación'] || record.segmentacionIGD;
+      if (!name) return acc;
+      const marginValue = Number(record.margen);
+      if (!Number.isFinite(marginValue)) return acc;
+      if (!acc[name]) acc[name] = [];
+      acc[name].push(marginValue);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([name, margins]) => ({ name, margins }));
+  }, [filteredRecords]);
 
   const filterOptions = useMemo(() => {
     const years = Array.from(new Set(rawRecords.map((item) => item.Año).filter(Boolean))).sort((a, b) => a - b);
@@ -867,7 +886,7 @@ const App = () => {
                     Ver popup
                   </button>
                 </div>
-                <BoxPlot data={categories} />
+                <BoxPlot data={boxPlotData} />
               </div>
             </div>
 
