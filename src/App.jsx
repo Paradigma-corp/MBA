@@ -103,6 +103,31 @@ const App = () => {
     };
   }, [categories, stats.promedioMargen]);
 
+  const statSummary = useMemo(() => {
+    const allMargins = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.margen) || 0));
+    const allIngresos = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.ingresos) || 0));
+    const allCostos = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.costos) || 0));
+
+    const calc = (values) => {
+      if (!values.length) return { mean: 0, std: 0, min: 0, max: 0 };
+      const meanValue = values.reduce((acc, value) => acc + value, 0) / values.length;
+      const variance = values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / values.length;
+      return {
+        mean: meanValue,
+        std: Math.sqrt(variance),
+        min: Math.min(...values),
+        max: Math.max(...values),
+      };
+    };
+
+    return {
+      margins: calc(allMargins),
+      ingresos: calc(allIngresos),
+      costos: calc(allCostos),
+      muestras: allMargins.length,
+    };
+  }, [categories]);
+
   const nav = [
     { label: 'Visión general', icon: LayoutDashboard },
     { label: 'Márgenes', icon: BarChart3 },
@@ -264,6 +289,62 @@ const App = () => {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="card border border-slate-200/80 shadow-md">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Tendencia central y dispersión</h3>
+                </div>
+                <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                  <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[{
+                  label: 'Margen (%)',
+                  mean: `${statSummary.margins.mean.toFixed(2)}%`,
+                  std: `${statSummary.margins.std.toFixed(2)}%`,
+                  min: `${statSummary.margins.min.toFixed(2)}%`,
+                  max: `${statSummary.margins.max.toFixed(2)}%`,
+                },
+                {
+                  label: 'Ingresos',
+                  mean: statSummary.ingresos.mean.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  std: statSummary.ingresos.std.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  min: statSummary.ingresos.min.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  max: statSummary.ingresos.max.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                },
+                {
+                  label: 'Costos',
+                  mean: statSummary.costos.mean.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  std: statSummary.costos.std.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  min: statSummary.costos.min.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  max: statSummary.costos.max.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                }].map((stat) => (
+                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-slate-900">{stat.label}</p>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Mean / σ</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-900">
+                      <p className="text-xl font-semibold">{stat.mean}</p>
+                      <span className="text-sm text-indigo-600 font-medium">± {stat.std}</span>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Mínimo</p>
+                        <p className="font-semibold text-slate-900">{stat.min}</p>
+                      </div>
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Máximo</p>
+                        <p className="font-semibold text-slate-900">{stat.max}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="card border border-slate-200/80 shadow-md">
