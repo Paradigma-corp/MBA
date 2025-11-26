@@ -42,7 +42,7 @@ const heroSlides = [
   {
     title: 'Automóviles',
     subtitle: 'Mercedes-Benz EQS y Clase E para dirección y flotas ejecutivas.',
-    image: '/images/hero-automoviles.svg',
+    image: '/images/hero-automoviles.jpg',
   },
   {
     title: 'Camiones',
