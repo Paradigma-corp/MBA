@@ -149,15 +149,6 @@ const App = () => {
     setDataSource('demo');
   };
 
-  const stats = useMemo(
-    () => ({
-      categorias: categories.length,
-      vendedores: salespeople.length,
-      promedioMargen: categories.length > 0 ? categories.reduce((acc, item) => acc + item.margen, 0) / categories.length : 0,
-    }),
-    [categories, salespeople],
-  );
-
   const totals = useMemo(() => {
     const totalIngresos = categories.reduce((acc, item) => acc + (item.totalIngresos || 0), 0);
     const totalCostos = categories.reduce((acc, item) => acc + (item.totalCostos || 0), 0);
@@ -166,9 +157,18 @@ const App = () => {
       totalIngresos,
       totalCostos,
       totalMargen,
-      promedioMargen: stats.promedioMargen,
+      marginPct: totalIngresos ? (totalMargen / totalIngresos) * 100 : 0,
     };
-  }, [categories, stats.promedioMargen]);
+  }, [categories]);
+
+  const stats = useMemo(
+    () => ({
+      categorias: categories.length,
+      vendedores: salespeople.length,
+      marginPct: totals.marginPct,
+    }),
+    [categories, salespeople, totals.marginPct],
+  );
 
   const statSummary = useMemo(() => {
     const allMargins = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.margen) || 0));
@@ -210,6 +210,14 @@ const App = () => {
 
   const formatNumber = (value, options = {}) =>
     Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
+
+  const formatMillionsUSD = (value) => {
+    if (!Number.isFinite(value)) return '—';
+    const millions = value / 1_000_000;
+    return `$${millions.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
+  };
+
+  const formatPercent = (value) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : '—');
 
   const modalDetails = useMemo(
     () => ({
@@ -293,11 +301,11 @@ const App = () => {
                     <span className="text-[11px] text-slate-500">{cat.n?.toLocaleString() ?? 0} filas</span>
                   </div>
                   <p className="text-xs text-slate-500">Margen medio: {formatNumber(cat.margen, { maximumFractionDigits: 1 })}% | σ: {formatNumber(cat.stdDev)}</p>
-                  <p className="text-sm text-slate-700 mt-1">Ingresos: {formatNumber(cat.totalIngresos)} · Costos: {formatNumber(cat.totalCostos)}</p>
+                  <p className="text-sm text-slate-700 mt-1">Ingresos: {formatMillionsUSD(cat.totalIngresos)} · Costos: {formatMillionsUSD(cat.totalCostos)}</p>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-slate-500">Totales: ingresos {formatNumber(totals.totalIngresos)} | costos {formatNumber(totals.totalCostos)} | margen {formatNumber(totals.totalMargen)}</p>
+            <p className="text-xs text-slate-500">Totales: ingresos {formatMillionsUSD(totals.totalIngresos)} | costos {formatMillionsUSD(totals.totalCostos)} | margen {formatMillionsUSD(totals.totalMargen)}</p>
           </div>
         ),
       },
@@ -455,7 +463,7 @@ const App = () => {
                     </div>
                     <div className="flex flex-wrap gap-3">
                       <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
-                        <Activity size={16} /> Margen medio {stats.promedioMargen.toFixed(0)}%
+                        <Activity size={16} /> Margen medio {formatPercent(stats.marginPct)}
                       </div>
                       <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
                         <Users size={16} /> {stats.vendedores} vendedores
@@ -636,6 +644,7 @@ const App = () => {
               {[{
                 title: 'Ingresos',
                 value: totals.totalIngresos,
+                type: 'currency',
                 accent: 'from-celeste-50 to-white',
                 text: 'text-celeste-700',
                 icon: LineChart,
@@ -643,6 +652,7 @@ const App = () => {
               {
                 title: 'Costos',
                 value: totals.totalCostos,
+                type: 'currency',
                 accent: 'from-black/5 to-white',
                 text: 'text-slate-900',
                 icon: Layers,
@@ -650,30 +660,33 @@ const App = () => {
               {
                 title: 'Margen total',
                 value: totals.totalMargen,
+                type: 'currency',
                 accent: 'from-celeste-100 to-celeste-200',
                 text: 'text-celeste-800',
                 icon: BarChart3,
               },
               {
                 title: 'Margen promedio',
-                value: stats.promedioMargen,
+                value: totals.marginPct,
+                type: 'percent',
                 accent: 'from-white to-celeste-50',
                 text: 'text-celeste-700',
                 icon: Percent,
               }].map((card) => {
                 const Icon = card.icon;
+                const displayValue = card.type === 'percent' ? formatPercent(card.value) : formatMillionsUSD(card.value);
                 return (
                   <div key={card.title} className={`card bg-gradient-to-br ${card.accent} border-0 shadow-lg shadow-slate-200/50`}>
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-xs uppercase text-slate-500">{card.title}</p>
-                        <p className="text-2xl font-semibold text-slate-900">{card.title === 'Margen promedio' ? card.value.toFixed(1) + '%' : card.value.toLocaleString()}</p>
+                        <p className="text-2xl font-semibold text-slate-900">{displayValue}</p>
                       </div>
                       <div className={`h-11 w-11 rounded-2xl bg-white text-slate-700 flex items-center justify-center shadow ${card.text}`}>
                         <Icon size={18} />
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">Comparativo automático vs semana previa.</p>
+                    <p className="mt-2 text-xs text-slate-500">Montos expresados en millones de USD. Margen promedio en % sobre ingresos.</p>
                   </div>
                 );
               })}

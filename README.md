@@ -20,6 +20,11 @@ Este repositorio contiene el dashboard estadístico para DIVEMOTOR. Consulta `BR
 - El contador de registros filtrados confirma cuántas filas se están usando en las visualizaciones, KPIs y el resumen estadístico.
 - Si tu CSV incluye una columna de línea de negocio, nombrala como `lineaNegocio`, `Linea de negocio` o `Línea de negocio` para que el filtro la detecte automáticamente; de lo contrario, el selector mostrará solo la opción “Todos”.
 
+### Unidades y formato de las métricas
+- Los KPIs superiores de ingresos, costos y margen se muestran en **millones de USD (M)** para evitar cifras extensas.
+- El margen promedio se expresa como **porcentaje sobre los ingresos** del subconjunto filtrado.
+- Los totales resaltados en tarjetas y resúmenes siguen ese mismo formato para mantener la lectura ejecutiva.
+
 ### Correlaciones y dispersión
 - La tarjeta **“Correlaciones”** muestra los coeficientes de Pearson para margen con ingresos, costos y unidades, recalculados según los filtros activos.
 - Los dos gráficos de dispersión exhiben la relación margen-ingresos y margen-costos a nivel de fila (hasta 1,500 puntos para mantener la UI fluida), pero las correlaciones se calculan con el 100% de las filas filtradas (sin muestreo).
