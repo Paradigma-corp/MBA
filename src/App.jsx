@@ -171,7 +171,14 @@ const App = () => {
   );
 
   const statSummary = useMemo(() => {
-    const allMargins = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.margen) || 0));
+    const allMarginPercents = categories.flatMap((cat) =>
+      (cat.records || []).map((item) => {
+        const ingresos = Number(item.ingresos) || 0;
+        const margen = Number(item.margen) || 0;
+        if (!Number.isFinite(ingresos) || ingresos === 0) return 0;
+        return (margen / ingresos) * 100;
+      }),
+    );
     const allIngresos = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.ingresos) || 0));
     const allCostos = categories.flatMap((cat) => (cat.records || []).map((item) => Number(item.costos) || 0));
 
@@ -188,10 +195,10 @@ const App = () => {
     };
 
     return {
-      margins: calc(allMargins),
+      marginPct: calc(allMarginPercents),
       ingresos: calc(allIngresos),
       costos: calc(allCostos),
-      muestras: allMargins.length,
+      muestras: allMarginPercents.length,
     };
   }, [categories]);
 
@@ -264,23 +271,27 @@ const App = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[{
                 label: 'Margen (%)',
-                data: statSummary.margins,
-                suffix: '%',
+                mean: formatPercent(statSummary.marginPct.mean),
+                std: formatPercent(statSummary.marginPct.std),
+                min: formatPercent(statSummary.marginPct.min),
+                max: formatPercent(statSummary.marginPct.max),
               }, {
-                label: 'Ingresos',
-                data: statSummary.ingresos,
+                label: 'Ingresos (USD millones)',
+                mean: formatMillionsUSD(statSummary.ingresos.mean),
+                std: formatMillionsUSD(statSummary.ingresos.std),
+                min: formatMillionsUSD(statSummary.ingresos.min),
+                max: formatMillionsUSD(statSummary.ingresos.max),
               }, {
-                label: 'Costos',
-                data: statSummary.costos,
+                label: 'Costos (USD millones)',
+                mean: formatMillionsUSD(statSummary.costos.mean),
+                std: formatMillionsUSD(statSummary.costos.std),
+                min: formatMillionsUSD(statSummary.costos.min),
+                max: formatMillionsUSD(statSummary.costos.max),
               }].map((item) => (
                 <div key={item.label} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm space-y-1">
                   <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{item.label}</p>
-                  <p className="text-base font-semibold text-slate-900">
-                    Media: {item.data.mean ? `${formatNumber(item.data.mean)}${item.suffix ?? ''}` : '—'}
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    σ: {item.data.std ? `${formatNumber(item.data.std)}${item.suffix ?? ''}` : '—'} | Min: {formatNumber(item.data.min)}{item.suffix ?? ''} | Max: {formatNumber(item.data.max)}{item.suffix ?? ''}
-                  </p>
+                  <p className="text-base font-semibold text-slate-900">Media: {item.mean}</p>
+                  <p className="text-sm text-slate-600">σ: {item.std} | Min: {item.min} | Max: {item.max}</p>
                 </div>
               ))}
             </div>
@@ -766,24 +777,24 @@ const App = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[{
                   label: 'Margen (%)',
-                  mean: `${statSummary.margins.mean.toFixed(2)}%`,
-                  std: `${statSummary.margins.std.toFixed(2)}%`,
-                  min: `${statSummary.margins.min.toFixed(2)}%`,
-                  max: `${statSummary.margins.max.toFixed(2)}%`,
+                  mean: formatPercent(statSummary.marginPct.mean),
+                  std: formatPercent(statSummary.marginPct.std),
+                  min: formatPercent(statSummary.marginPct.min),
+                  max: formatPercent(statSummary.marginPct.max),
                 },
                 {
-                  label: 'Ingresos',
-                  mean: statSummary.ingresos.mean.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
-                  std: statSummary.ingresos.std.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
-                  min: statSummary.ingresos.min.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
-                  max: statSummary.ingresos.max.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  label: 'Ingresos (USD millones)',
+                  mean: formatMillionsUSD(statSummary.ingresos.mean),
+                  std: formatMillionsUSD(statSummary.ingresos.std),
+                  min: formatMillionsUSD(statSummary.ingresos.min),
+                  max: formatMillionsUSD(statSummary.ingresos.max),
                 },
                 {
-                  label: 'Costos',
-                  mean: statSummary.costos.mean.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
-                  std: statSummary.costos.std.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
-                  min: statSummary.costos.min.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
-                  max: statSummary.costos.max.toLocaleString('es-ES', { maximumFractionDigits: 2 }),
+                  label: 'Costos (USD millones)',
+                  mean: formatMillionsUSD(statSummary.costos.mean),
+                  std: formatMillionsUSD(statSummary.costos.std),
+                  min: formatMillionsUSD(statSummary.costos.min),
+                  max: formatMillionsUSD(statSummary.costos.max),
                 }].map((stat) => (
                   <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90">
                     <div className="flex items-center justify-between mb-2">
