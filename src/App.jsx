@@ -25,7 +25,9 @@ import SamplingCalculator from './components/calculators/SamplingCalculator.jsx'
 import WaterfallCalculator from './components/calculators/WaterfallCalculator.jsx';
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
-import { transformToCategories, transformToSalespeople } from './utils/dataParser.js';
+import { computeCorrelations, transformToCategories, transformToSalespeople } from './utils/dataParser.js';
+import CorrelationBars from './components/charts/CorrelationBars.jsx';
+import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 
 const App = () => {
   const [config, setConfig] = useState({
@@ -40,6 +42,7 @@ const App = () => {
     return performBootstrap(transformed, 5000);
   });
   const [salespeople, setSalespeople] = useState(transformToSalespeople(demoRecords));
+  const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
   const [workerReady, setWorkerReady] = useState(false);
@@ -53,9 +56,10 @@ const App = () => {
   useEffect(() => {
     const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
     worker.onmessage = (event) => {
-      const { categories: newCategories, salespeople: newSalespeople } = event.data;
+      const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
       setCategories(newCategories);
       setSalespeople(newSalespeople);
+      setCorrelations(newCorrelations);
     };
     workerRef.current = worker;
     setWorkerReady(true);
@@ -102,6 +106,7 @@ const App = () => {
     const transformed = transformToCategories(demoRecords);
     setCategories(performBootstrap(transformed, bootstrapIterations));
     setSalespeople(transformToSalespeople(demoRecords));
+    setCorrelations(computeCorrelations(demoRecords));
     setRawRecords(demoRecords);
     setFilters({ year: 'all', segment: 'all', vendor: 'all' });
     setDataSource('demo');
@@ -392,6 +397,50 @@ const App = () => {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="card border border-slate-200/80 shadow-md">
+              <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Correlaciones</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Relación entre márgenes, ingresos y costos</h3>
+                  <p className="text-sm text-slate-600">Coeficientes de Pearson recalculados con los filtros activos.</p>
+                </div>
+                <div className="flex flex-col gap-1 text-xs text-slate-600">
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
+                    <LineChart size={14} /> ρ(margen, ingreso): {correlations?.margenIngreso?.toFixed(2) ?? '0.00'}
+                  </span>
+                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
+                    <LineChart size={14} /> ρ(margen, costos): {correlations?.margenCostos?.toFixed(2) ?? '0.00'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.1fr] gap-4">
+                <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-semibold text-slate-900">Coeficientes clave</p>
+                    <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">-1 a 1</span>
+                  </div>
+                  <CorrelationBars correlations={correlations} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-slate-900">Margen vs Ingresos</p>
+                      <span className="text-[11px] text-slate-500">Scatter filtrado</span>
+                    </div>
+                    <CorrelationScatter records={filteredRecords} xKey="ingresos" yKey="margen" />
+                  </div>
+                  <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-slate-900">Margen vs Costos</p>
+                      <span className="text-[11px] text-slate-500">Scatter filtrado</span>
+                    </div>
+                    <CorrelationScatter records={filteredRecords} xKey="costos" yKey="margen" color="#10b981" />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="card border border-slate-200/80 shadow-md">

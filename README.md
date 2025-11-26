@@ -18,3 +18,7 @@ Este repositorio contiene el dashboard estadístico para DIVEMOTOR. Consulta `BR
 ### Filtros rápidos de análisis
 - Tras cargar el CSV (o con los datos demo), usa la tarjeta **“Filtros de análisis”** para acotar los cálculos por Año, Segmentación o Vendedor SAP.
 - El contador de registros filtrados confirma cuántas filas se están usando en las visualizaciones, KPIs y el resumen estadístico.
+
+### Correlaciones y dispersión
+- La tarjeta **“Correlaciones”** muestra los coeficientes de Pearson para margen con ingresos, costos y unidades, recalculados según los filtros activos.
+- Los dos gráficos de dispersión exhiben la relación margen-ingresos y margen-costos a nivel de fila (hasta 1,500 puntos para mantener la UI fluida).

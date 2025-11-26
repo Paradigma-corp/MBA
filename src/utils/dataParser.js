@@ -6,6 +6,40 @@ const mapRecord = (record) => ({
 
 const mean = (values) => values.reduce((acc, val) => acc + val, 0) / (values.length || 1);
 
+const correlation = (records, xKey, yKey) => {
+  const cleaned = records
+    .map((record) => ({
+      x: Number(record[xKey]),
+      y: Number(record[yKey]),
+    }))
+    .filter((pair) => Number.isFinite(pair.x) && Number.isFinite(pair.y));
+
+  const n = cleaned.length;
+  if (n < 2) return 0;
+
+  const meanX = cleaned.reduce((acc, { x }) => acc + x, 0) / n;
+  const meanY = cleaned.reduce((acc, { y }) => acc + y, 0) / n;
+  const cov =
+    cleaned.reduce((acc, { x, y }) => acc + (x - meanX) * (y - meanY), 0) /
+    (n - 1);
+  const stdX = Math.sqrt(
+    cleaned.reduce((acc, { x }) => acc + (x - meanX) ** 2, 0) / (n - 1),
+  );
+  const stdY = Math.sqrt(
+    cleaned.reduce((acc, { y }) => acc + (y - meanY) ** 2, 0) / (n - 1),
+  );
+
+  if (stdX === 0 || stdY === 0) return 0;
+  return cov / (stdX * stdY);
+};
+
+export const computeCorrelations = (records) => ({
+  margenIngreso: correlation(records, 'ingresos', 'margen'),
+  margenCostos: correlation(records, 'costos', 'margen'),
+  ingresoCostos: correlation(records, 'ingresos', 'costos'),
+  margenUnidades: correlation(records, 'Unidades UN', 'margen'),
+});
+
 export const transformToCategories = (records) => {
   const mapped = records.map(mapRecord);
   const groups = mapped.reduce((acc, record) => {

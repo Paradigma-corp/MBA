@@ -1,4 +1,8 @@
-import { transformToCategories, transformToSalespeople } from '../utils/dataParser.js';
+import {
+  transformToCategories,
+  transformToSalespeople,
+  computeCorrelations,
+} from '../utils/dataParser.js';
 import { performBootstrap } from '../utils/bootstrap.js';
 
 self.onmessage = (event) => {
@@ -6,5 +10,6 @@ self.onmessage = (event) => {
   const categories = transformToCategories(records);
   const bootstrapped = performBootstrap(categories, iterations, confidenceLevel);
   const salespeople = transformToSalespeople(records);
-  self.postMessage({ categories: bootstrapped, salespeople });
+  const correlations = computeCorrelations(records);
+  self.postMessage({ categories: bootstrapped, salespeople, correlations });
 };
