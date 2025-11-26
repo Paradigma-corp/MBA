@@ -17,7 +17,7 @@ const BoxPlot = ({ data }) => {
         enableGridX={false}
         axisBottom={{ legend: 'Categoría', legendOffset: 36, legendPosition: 'middle' }}
         axisLeft={{ legend: 'Margen', legendOffset: -45, legendPosition: 'middle' }}
-        colors={{ scheme: 'paired' }}
+        colors={() => '#22c7f2'}
       />
     </div>
   );

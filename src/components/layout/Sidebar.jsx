@@ -4,7 +4,7 @@ import { Repeat, Settings2 } from 'lucide-react';
 const Sidebar = ({ config, setConfig, bootstrapIterations, setBootstrapIterations, onReset }) => {
   return (
     <aside className="card w-full lg:w-80 h-max sticky top-4 p-0 overflow-hidden">
-      <div className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-5 py-4 flex items-center gap-3">
+      <div className="bg-gradient-to-r from-black to-celeste-600 text-white px-5 py-4 flex items-center gap-3">
         <div className="h-10 w-10 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
           <Settings2 size={18} />
         </div>
@@ -30,7 +30,7 @@ const Sidebar = ({ config, setConfig, bootstrapIterations, setBootstrapIteration
               step="0.01"
               value={config[field.key]}
               onChange={(e) => setConfig((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-celeste-500"
             />
           </label>
         ))}
@@ -39,19 +39,19 @@ const Sidebar = ({ config, setConfig, bootstrapIterations, setBootstrapIteration
             <span className="font-medium">Iteraciones Bootstrap</span>
             <span className="text-[11px] text-slate-500">Precisión</span>
           </div>
-          <input
-            type="number"
-            min="100"
-            step="100"
-            value={bootstrapIterations}
-            onChange={(e) => setBootstrapIterations(Number(e.target.value))}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <input
+              type="number"
+              min="100"
+              step="100"
+              value={bootstrapIterations}
+              onChange={(e) => setBootstrapIterations(Number(e.target.value))}
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-celeste-500"
           />
         </label>
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex items-center gap-2 text-indigo-700 font-semibold hover:text-indigo-900"
+          className="inline-flex items-center gap-2 text-celeste-700 font-semibold hover:text-celeste-900"
         >
           <Repeat size={16} /> Reiniciar a demo
         </button>

@@ -4,7 +4,7 @@ import { Bell, CalendarDays, Rocket, Sparkles } from 'lucide-react';
 const Header = () => (
   <header className="flex flex-wrap items-center justify-between gap-4">
     <div className="flex items-center gap-3">
-      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-black via-black to-celeste-600 text-white flex items-center justify-center shadow-lg shadow-celeste-200/60">
         <Rocket />
       </div>
       <div className="space-y-1">
@@ -14,14 +14,14 @@ const Header = () => (
       </div>
     </div>
     <div className="flex items-center gap-3 text-sm">
-      <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/80 border border-slate-200 shadow-sm text-slate-700">
-        <CalendarDays size={18} className="text-indigo-600" />
+      <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/80 border border-slate-200 shadow-sm text-slate-800">
+        <CalendarDays size={18} className="text-celeste-700" />
         <span>Semana analizada: Hoy</span>
       </div>
-      <button type="button" className="h-10 w-10 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:text-indigo-600">
+      <button type="button" className="h-10 w-10 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:text-celeste-700">
         <Bell size={18} />
       </button>
-      <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-md">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-gradient-to-r from-black to-celeste-600 text-white shadow-md">
         <Sparkles size={16} />
         <span className="text-sm font-semibold">Live insights</span>
       </div>

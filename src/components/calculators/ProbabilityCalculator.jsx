@@ -54,7 +54,7 @@ const ProbabilityCalculator = ({ salespeople }) => {
           />
         </label>
       </div>
-      <div className="mt-4 p-3 rounded-lg bg-indigo-50 text-indigo-800 font-semibold">
+      <div className="mt-4 p-3 rounded-lg bg-celeste-50 text-celeste-800 font-semibold">
         Probabilidad estimada: {probability.toFixed(2)}%
       </div>
     </div>

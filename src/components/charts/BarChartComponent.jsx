@@ -19,7 +19,7 @@ const BarChartComponent = ({ data }) => {
         padding={0.3}
         valueScale={{ type: 'linear' }}
         indexScale={{ type: 'band', round: true }}
-        colors={['#6366f1', '#f97316', '#16a34a']}
+        colors={['#22c7f2', '#0b0b0f', '#8adfff']}
         labelSkipHeight={12}
         labelTextColor="#fff"
         legends={[

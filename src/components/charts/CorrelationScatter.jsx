@@ -9,7 +9,7 @@ const formatLabel = (key) => {
   return key;
 };
 
-const CorrelationScatter = ({ records, xKey, yKey, color = '#2563eb' }) => {
+const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2' }) => {
   const trimmed = (records || []).slice(0, 1500);
   const points = trimmed
     .map((record, index) => ({
@@ -137,7 +137,7 @@ const CorrelationScatter = ({ records, xKey, yKey, color = '#2563eb' }) => {
                 y1={yScale(regressionLine.y1)}
                 x2={xScale(regressionLine.x2)}
                 y2={yScale(regressionLine.y2)}
-                stroke="#0f766e"
+                stroke="#0c89aa"
                 strokeWidth={2}
                 opacity={0.9}
               />

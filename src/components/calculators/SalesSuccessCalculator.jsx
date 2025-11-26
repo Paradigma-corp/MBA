@@ -51,7 +51,7 @@ const SalesSuccessCalculator = () => {
           />
         </label>
       </div>
-      <div className="mt-4 p-3 rounded-lg bg-emerald-50 text-emerald-800 font-semibold">
+      <div className="mt-4 p-3 rounded-lg bg-celeste-50 text-celeste-800 font-semibold">
         Probabilidad: {(probability * 100).toFixed(2)}%
       </div>
     </div>

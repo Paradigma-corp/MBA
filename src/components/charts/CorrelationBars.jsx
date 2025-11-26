@@ -30,7 +30,7 @@ const CorrelationBars = ({ correlations }) => {
         layout="horizontal"
         margin={{ top: 20, right: 28, bottom: 46, left: 160 }}
         padding={0.4}
-        colors={(bar) => (bar.data.correlacion >= 0 ? '#0ea5e9' : '#ef4444')}
+        colors={(bar) => (bar.data.correlacion >= 0 ? '#22c7f2' : '#0f172a')}
         minValue={-1}
         maxValue={1}
         axisBottom={{

@@ -51,7 +51,7 @@ const SamplingCalculator = () => {
           />
         </label>
       </div>
-      <div className="mt-4 p-3 rounded-lg bg-amber-50 text-amber-800 font-semibold">
+      <div className="mt-4 p-3 rounded-lg bg-celeste-50 text-celeste-800 font-semibold">
         Tamaño mínimo: {sampleSize} observaciones
       </div>
     </div>

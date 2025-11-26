@@ -312,9 +312,9 @@ const App = () => {
   return (
     <div className="min-h-screen text-slate-900">
       <div className="flex min-h-screen">
-        <aside className="hidden lg:flex w-64 bg-white/80 backdrop-blur-xl border-r border-slate-200/80 flex-col p-5 gap-6 shadow-md shadow-slate-200/60">
+        <aside className="hidden lg:flex w-64 bg-white/85 backdrop-blur-xl border-r border-slate-200/80 flex-col p-5 gap-6 shadow-md shadow-slate-200/60">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-white flex items-center justify-center shadow-md">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-black to-celeste-600 text-white flex items-center justify-center shadow-md">
               <Home size={20} />
             </div>
             <div>
@@ -329,7 +329,7 @@ const App = () => {
                 <button
                   key={item.label}
                   type="button"
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm text-slate-700 hover:bg-celeste-50 hover:text-celeste-700 transition"
                 >
                   <Icon size={16} />
                   <span className="font-medium">{item.label}</span>
@@ -343,7 +343,7 @@ const App = () => {
               <p className="font-semibold">{dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}</p>
               <p className="text-xs text-slate-500 mt-1">10,741 registros procesados vía Web Worker.</p>
             </div>
-            <div className="flex items-center gap-2 text-emerald-600 text-sm">
+            <div className="flex items-center gap-2 text-celeste-700 text-sm">
               <ShieldCheck size={16} />
               <span>Procesamiento seguro y sin bloqueos</span>
             </div>
@@ -355,8 +355,8 @@ const App = () => {
             <Header />
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="xl:col-span-2 card bg-gradient-to-r from-indigo-500 via-indigo-500 to-cyan-400 text-white shadow-xl border-0 relative overflow-hidden">
-                <div className="absolute inset-y-0 right-0 w-40 bg-white/15 blur-3xl" />
+              <div className="xl:col-span-2 card bg-gradient-to-r from-black to-celeste-500 text-white shadow-xl border-0 relative overflow-hidden">
+                <div className="absolute inset-y-0 right-0 w-40 bg-white/20 blur-3xl" />
                 <div className="space-y-3 relative">
                   <p className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-semibold backdrop-blur-md">
                     <RefreshCw size={14} /> Sincronizado con worker
@@ -378,7 +378,7 @@ const App = () => {
               <div className="card bg-white/90 border border-slate-200/80">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-10 w-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-2xl bg-celeste-50 text-celeste-700 flex items-center justify-center">
                       <CloudUpload size={18} />
                     </div>
                     <div>
@@ -386,11 +386,11 @@ const App = () => {
                       <p className="font-semibold">Importa BBDD x.csv</p>
                     </div>
                   </div>
-                  <span className={`h-2.5 w-2.5 rounded-full ${dataSource === 'demo' ? 'bg-amber-400' : 'bg-emerald-500'} shadow shadow-amber-300/50`} />
+                  <span className={`h-2.5 w-2.5 rounded-full ${dataSource === 'demo' ? 'bg-slate-500' : 'bg-celeste-600'} shadow shadow-slate-300/50`} />
                 </div>
                 <p className="text-sm text-slate-600 mb-4">Procesa en background y cambia instantáneamente entre demo y la base completa.</p>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-xl border border-indigo-600 cursor-pointer shadow-sm hover:bg-indigo-700 transition">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-celeste-600 text-white rounded-xl border border-celeste-600 cursor-pointer shadow-sm hover:bg-celeste-700 transition">
                     <input type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
                     <span className="text-sm font-medium">Seleccionar CSV</span>
                   </label>
@@ -426,7 +426,7 @@ const App = () => {
                 <button
                   type="button"
                   onClick={() => setFilters({ year: 'all', segment: 'all', vendor: 'all' })}
-                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                  className="text-sm text-celeste-700 hover:text-celeste-800"
                 >
                   Limpiar filtros
                 </button>
@@ -435,7 +435,7 @@ const App = () => {
                 <div className="space-y-2">
                   <label className="text-xs uppercase text-slate-500">Año</label>
                   <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-celeste-200"
                     value={filters.year}
                     onChange={(e) => setFilters((prev) => ({ ...prev, year: e.target.value === 'all' ? 'all' : Number(e.target.value) }))}
                   >
@@ -450,7 +450,7 @@ const App = () => {
                 <div className="space-y-2">
                   <label className="text-xs uppercase text-slate-500">Segmentación</label>
                   <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-celeste-200"
                     value={filters.segment}
                     onChange={(e) => setFilters((prev) => ({ ...prev, segment: e.target.value }))}
                   >
@@ -465,7 +465,7 @@ const App = () => {
                 <div className="space-y-2">
                   <label className="text-xs uppercase text-slate-500">Vendedor SAP</label>
                   <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-celeste-200"
                     value={filters.vendor}
                     onChange={(e) => setFilters((prev) => ({ ...prev, vendor: e.target.value }))}
                   >
@@ -482,9 +482,9 @@ const App = () => {
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
                   <BarChart3 size={12} /> {filteredRecords.length.toLocaleString()} registros filtrados
                 </span>
-                {filters.year !== 'all' && <span className="px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-[11px] border border-indigo-100">Año {filters.year}</span>}
-                {filters.segment !== 'all' && <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[11px] border border-emerald-100">{filters.segment}</span>}
-                {filters.vendor !== 'all' && <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] border border-amber-100">SAP {filters.vendor}</span>}
+                {filters.year !== 'all' && <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">Año {filters.year}</span>}
+                {filters.segment !== 'all' && <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">{filters.segment}</span>}
+                {filters.vendor !== 'all' && <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">SAP {filters.vendor}</span>}
               </div>
             </div>
 
@@ -492,29 +492,29 @@ const App = () => {
               {[{
                 title: 'Ingresos',
                 value: totals.totalIngresos,
-                accent: 'from-emerald-50 to-emerald-100',
-                text: 'text-emerald-700',
+                accent: 'from-celeste-50 to-white',
+                text: 'text-celeste-700',
                 icon: LineChart,
               },
               {
                 title: 'Costos',
                 value: totals.totalCostos,
-                accent: 'from-amber-50 to-amber-100',
-                text: 'text-amber-700',
+                accent: 'from-black/5 to-white',
+                text: 'text-slate-900',
                 icon: Layers,
               },
               {
                 title: 'Margen total',
                 value: totals.totalMargen,
-                accent: 'from-indigo-50 to-indigo-100',
-                text: 'text-indigo-700',
+                accent: 'from-celeste-100 to-celeste-200',
+                text: 'text-celeste-800',
                 icon: BarChart3,
               },
               {
                 title: 'Margen promedio',
                 value: stats.promedioMargen,
-                accent: 'from-cyan-50 to-cyan-100',
-                text: 'text-cyan-700',
+                accent: 'from-white to-celeste-50',
+                text: 'text-celeste-700',
                 icon: Percent,
               }].map((card) => {
                 const Icon = card.icon;
@@ -550,13 +550,13 @@ const App = () => {
                     <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
                       <LineChart size={14} /> ρ(margen, costos): {correlations?.margenCostos?.toFixed(2) ?? '0.00'}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveModal('correlations')}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:border-indigo-200 hover:text-indigo-700"
-                    >
-                      Ver popup detallado
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('correlations')}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 hover:border-celeste-200 hover:text-celeste-700"
+                  >
+                    Ver popup detallado
+                  </button>
                   </div>
                 </div>
 
@@ -581,7 +581,7 @@ const App = () => {
                       <p className="text-sm font-semibold text-slate-900">Margen vs Costos</p>
                       <span className="text-[11px] text-slate-500">Scatter filtrado</span>
                     </div>
-                    <CorrelationScatter records={filteredRecords} xKey="costos" yKey="margen" color="#10b981" />
+                    <CorrelationScatter records={filteredRecords} xKey="costos" yKey="margen" color="#0c89aa" />
                   </div>
                 </div>
               </div>
@@ -600,7 +600,7 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('stats')}
-                    className="text-sm text-indigo-600 hover:text-indigo-700"
+                    className="text-sm text-celeste-700 hover:text-celeste-800"
                   >
                     Ver popup
                   </button>
@@ -635,7 +635,7 @@ const App = () => {
                     </div>
                     <div className="flex items-center justify-between text-slate-900">
                       <p className="text-xl font-semibold">{stat.mean}</p>
-                      <span className="text-sm text-indigo-600 font-medium">± {stat.std}</span>
+                      <span className="text-sm text-celeste-700 font-medium">± {stat.std}</span>
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
                       <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
@@ -658,13 +658,13 @@ const App = () => {
                   <p className="text-xs uppercase text-slate-500">Categorías</p>
                   <h3 className="text-lg font-semibold text-slate-900">Ingresos, costos y margen</h3>
                 </div>
-                <span className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
+                <span className="inline-flex items-center gap-2 text-sm px-3 py-1 rounded-full bg-celeste-50 text-celeste-700 border border-celeste-100">
                   <ArrowUpRight size={14} /> Seguimiento ejecutivo
                 </span>
                 <button
                   type="button"
                   onClick={() => setActiveModal('categories')}
-                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                  className="text-sm text-celeste-700 hover:text-celeste-800"
                 >
                   Ver popup
                 </button>
@@ -680,7 +680,7 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('dispersion')}
-                    className="text-xs text-indigo-600 hover:text-indigo-700"
+                    className="text-xs text-celeste-700 hover:text-celeste-800"
                   >
                     Ver popup
                   </button>
@@ -694,7 +694,7 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => setActiveModal('boxplot')}
-                    className="text-xs text-indigo-600 hover:text-indigo-700"
+                    className="text-xs text-celeste-700 hover:text-celeste-800"
                   >
                     Ver popup
                   </button>
@@ -729,13 +729,13 @@ const App = () => {
                 <h3 className="text-lg font-semibold text-slate-900">Worker dedicado para las 10,741 filas</h3>
                 <p className="text-sm text-slate-600">Transformación y bootstrap corren fuera del hilo principal para mantener la UI suave.</p>
               </div>
-              <div className="px-4 py-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-2">
+              <div className="px-4 py-3 rounded-2xl bg-celeste-50 text-celeste-700 border border-celeste-100 flex items-center gap-2">
                 <ShieldCheck size={16} /> Estabilidad garantizada
               </div>
               <button
                 type="button"
                 onClick={() => setActiveModal('worker')}
-                className="text-sm text-indigo-600 hover:text-indigo-700"
+                className="text-sm text-celeste-700 hover:text-celeste-800"
               >
                 Ver detalle en popup
               </button>
