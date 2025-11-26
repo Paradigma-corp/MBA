@@ -18,6 +18,7 @@ const heatColor = (value) => {
 
 const CategoryCorrelationModule = ({ records }) => {
   const [metric, setMetric] = useState('margen');
+  const [showHeatmapModal, setShowHeatmapModal] = useState(false);
 
   const correlationData = useMemo(() => {
     try {
@@ -39,6 +40,42 @@ const CategoryCorrelationModule = ({ records }) => {
 
   const activeMatrix = correlationData.matrices?.[metric] || [];
 
+  const HeatmapGrid = ({ withLabels = false, cellPadding = 'py-3', textSize = 'text-xs' }) => (
+    <div
+      className={`grid gap-2 text-center font-semibold text-slate-900 ${textSize}`}
+      style={{
+        gridTemplateColumns: withLabels
+          ? `120px repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`
+          : `repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`,
+      }}
+    >
+      {withLabels && <div className="" />}
+      {withLabels &&
+        correlationData.categories.map((cat) => (
+          <div key={`col-${cat}`} className="text-slate-600 text-xs uppercase tracking-[0.08em]">
+            {cat}
+          </div>
+        ))}
+      {correlationData.categories.map((cat, rowIdx) => (
+        <React.Fragment key={cat}>
+          {withLabels && <div className="text-right pr-2 text-slate-700 font-semibold">{cat}</div>}
+          {activeMatrix[rowIdx]?.map((value, colIdx) => {
+            const displayValue = Number.isFinite(value) ? value : 0;
+            return (
+              <div
+                key={`${cat}-${colIdx}`}
+                className={`rounded-lg px-2 ${cellPadding}`}
+                style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(displayValue) }}
+              >
+                {displayValue.toFixed(2)}
+              </div>
+            );
+          })}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+
   if (!correlationData.categories.length) {
     return (
       <div className="p-4 rounded-xl border border-slate-200 bg-white text-sm text-slate-600">
@@ -48,7 +85,8 @@ const CategoryCorrelationModule = ({ records }) => {
   }
 
   return (
-    <div className="space-y-4">
+    <>
+      <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase text-slate-500">Correlación 1 a 1</p>
@@ -115,29 +153,22 @@ const CategoryCorrelationModule = ({ records }) => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-          <p className="text-xs uppercase text-slate-500">Mapa de calor</p>
-          <p className="text-sm text-slate-600 mb-3">Entre mayor intensidad, más dependencia lineal.</p>
-          <div
-            className="grid gap-2 text-center text-xs font-semibold text-slate-900"
-            style={{ gridTemplateColumns: `repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))` }}
-          >
-            {correlationData.categories.map((cat, rowIdx) => (
-              <React.Fragment key={cat}>
-                {activeMatrix[rowIdx]?.map((value, colIdx) => {
-                  const displayValue = Number.isFinite(value) ? value : 0;
-                  return (
-                  <div
-                    key={`${cat}-${colIdx}`}
-                    className="rounded-lg px-2 py-3"
-                    style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(displayValue) }}
-                  >
-                    {displayValue.toFixed(2)}
-                  </div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <p className="text-xs uppercase text-slate-500">Mapa de calor</p>
+              <p className="text-sm text-slate-600">Entre mayor intensidad, más dependencia lineal.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowHeatmapModal(true)}
+              className="text-sm font-semibold text-celeste-700 hover:text-celeste-900 flex items-center gap-1"
+            >
+              <span>Ver completo</span>
+              <span aria-hidden="true">↗</span>
+            </button>
           </div>
+          <p className="text-xs text-slate-500 mb-2">Vista compacta (toque para ampliar).</p>
+          <HeatmapGrid cellPadding="py-4" />
         </div>
 
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -170,7 +201,32 @@ const CategoryCorrelationModule = ({ records }) => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {showHeatmapModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-start justify-between gap-3 p-4 border-b border-slate-100">
+              <div>
+                <p className="text-xs uppercase text-slate-500">Mapa de calor ampliado</p>
+                <h4 className="text-lg font-semibold text-slate-900">Correlación 1 a 1</h4>
+                <p className="text-sm text-slate-600">Vista expandida con etiquetas de filas y columnas para revisar cada par.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHeatmapModal(false)}
+                className="text-sm font-semibold text-slate-500 hover:text-slate-700"
+              >
+                Cerrar ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-auto">
+              <HeatmapGrid withLabels textSize="text-sm" cellPadding="py-4" />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
