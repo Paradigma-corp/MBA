@@ -37,6 +37,8 @@ import {
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
+import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
+import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
 
 const heroSlides = [
   {
@@ -768,6 +770,51 @@ const App = () => {
                     <CorrelationScatter records={filteredRecords} xKey="costos" yKey="margen" color="#0c89aa" />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">🔍 Correlación y regresión comparativa entre categorías</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Interdependencia entre Autos, Vans, Camiones y Buses</h3>
+                  <p className="text-sm text-slate-600">
+                    Explora qué tan alineadas están las líneas de negocio entre sí y qué tan independiente es Autos frente al resto
+                    usando correlaciones y un modelo de regresión con variables dummy.
+                  </p>
+                </div>
+              </div>
+
+              <div className="card border border-slate-200/80 shadow-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs uppercase text-slate-500">Correlación entre categorías</p>
+                    <h4 className="text-base font-semibold text-slate-900">1 a 1 y 1 vs conjunto</h4>
+                    <p className="text-sm text-slate-600">
+                      Matrices y textos interpretativos que se recalculan automáticamente con los filtros activos.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
+                    Incluye margen, ingresos, costos y unidades
+                  </span>
+                </div>
+                <CategoryCorrelationModule records={filteredRecords} />
+              </div>
+
+              <div className="card border border-slate-200/80 shadow-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs uppercase text-slate-500">Modelo de regresión: independencia y solvencia de Autos</p>
+                    <h4 className="text-base font-semibold text-slate-900">Coeficientes β editables y R²</h4>
+                    <p className="text-sm text-slate-600">
+                      Ajusta los dummies por categoría y obtén una conclusión automática sobre el peso de Autos frente al resto.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
+                    Conclusión automática y tabla resumen
+                  </span>
+                </div>
+                <RegressionComparisonModule records={filteredRecords} />
               </div>
             </div>
 
