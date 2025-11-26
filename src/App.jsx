@@ -42,22 +42,22 @@ const heroSlides = [
   {
     title: 'Automóviles',
     subtitle: 'Mercedes-Benz EQS y Clase E para dirección y flotas ejecutivas.',
-    image: '/images/hero-automoviles.svg',
+    image: '/images/hero-automoviles.jpg',
   },
   {
     title: 'Camiones',
     subtitle: 'Tractos Mercedes-Benz Actros listos para logística pesada confiable.',
-    image: '/images/hero-camiones.svg',
+    image: '/images/hero-camiones.jpg',
   },
   {
     title: 'Vans',
     subtitle: 'Mercedes-Benz Sprinter para reparto urbano y transporte ejecutivo.',
-    image: '/images/hero-vans.svg',
+    image: '/images/hero-vans.jpg',
   },
   {
     title: 'Buses',
     subtitle: 'Mercedes-Benz Citaro para rutas con confort y eficiencia.',
-    image: '/images/hero-buses.svg',
+    image: '/images/hero-buses.jpg',
   },
 ];
 
