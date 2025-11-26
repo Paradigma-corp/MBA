@@ -80,10 +80,18 @@ const interpretCorrelationStrength = (value) => {
   return 'correlación fuerte (dependencia clara)';
 };
 
+const CORE_CATEGORIES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+
 export const computeCategoryCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
   const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
-  const categories = Array.from(foundCategories).sort();
+  const discovered = Array.from(foundCategories);
+  const preferred = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
+  const extras = discovered.filter((cat) => !CORE_CATEGORIES.includes(cat)).sort();
+  const categories = preferred.length ? [...preferred, ...extras] : extras;
+  const primaryCategories = preferred.length
+    ? preferred
+    : categories.slice(0, Math.min(4, categories.length));
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
   const matrices = {};
 
@@ -97,13 +105,16 @@ export const computeCategoryCorrelations = (records) => {
     );
   });
 
-  return { categories, matrices };
+  return { categories, matrices, primaryCategories };
 };
 
 export const computeOneVsManyCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
   const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
-  const categories = Array.from(foundCategories).sort();
+  const discovered = Array.from(foundCategories);
+  const preferred = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
+  const extras = discovered.filter((cat) => !CORE_CATEGORIES.includes(cat)).sort();
+  const categories = preferred.length ? [...preferred, ...extras] : extras;
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
 
   return categories.map((category) => {

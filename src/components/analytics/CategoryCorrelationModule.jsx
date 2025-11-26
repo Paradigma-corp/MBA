@@ -27,15 +27,15 @@ const CategoryCorrelationModule = ({ records }) => {
       return computeCategoryCorrelations(records);
     } catch (error) {
       console.error('Correlation matrix error', error);
-      return { categories: [], matrices: {} };
+      return { categories: [], matrices: {}, primaryCategories: [] };
     }
   }, [records]);
 
   useEffect(() => {
-    const cats = correlationData.categories || [];
-    setRowSelection(cats);
-    setColSelection(cats);
-  }, [correlationData.categories]);
+    const primary = correlationData.primaryCategories || [];
+    setRowSelection(primary);
+    setColSelection(primary);
+  }, [correlationData.primaryCategories]);
 
   const oneVsMany = useMemo(() => {
     try {
@@ -47,8 +47,16 @@ const CategoryCorrelationModule = ({ records }) => {
   }, [records]);
 
   const activeMatrix = correlationData.matrices?.[metric] || [];
-  const selectedRows = rowSelection.length ? rowSelection : correlationData.categories;
-  const selectedCols = colSelection.length ? colSelection : correlationData.categories;
+  const selectedRows = rowSelection.length
+    ? rowSelection
+    : correlationData.primaryCategories.length
+      ? correlationData.primaryCategories
+      : correlationData.categories;
+  const selectedCols = colSelection.length
+    ? colSelection
+    : correlationData.primaryCategories.length
+      ? correlationData.primaryCategories
+      : correlationData.categories;
 
   const correlationForPair = (rowCat, colCat) => {
     const rowIndex = correlationData.categories.indexOf(rowCat);
@@ -145,8 +153,8 @@ const CategoryCorrelationModule = ({ records }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <div className="lg:col-span-1">
           <p className="text-xs uppercase text-slate-500">Filas (eje Y)</p>
           <select
             multiple
@@ -162,7 +170,7 @@ const CategoryCorrelationModule = ({ records }) => {
           </select>
           <p className="text-xs text-slate-500 mt-1">Selecciona qué categorías aparecen en el eje Y.</p>
         </div>
-        <div>
+        <div className="lg:col-span-1">
           <p className="text-xs uppercase text-slate-500">Columnas (eje X)</p>
           <select
             multiple
@@ -177,6 +185,24 @@ const CategoryCorrelationModule = ({ records }) => {
             ))}
           </select>
           <p className="text-xs text-slate-500 mt-1">Elige qué categorías se muestran en el eje X.</p>
+        </div>
+        <div className="lg:col-span-1 flex flex-col gap-2">
+          <p className="text-xs uppercase text-slate-500">Vista base</p>
+          <p className="text-sm text-slate-600">
+            La vista inicia con Automóviles, Vans, Camiones y Buses para mantener el foco del curso. Cambia los ejes
+            si deseas contrastar otras categorías de tu base cargada.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const primary = correlationData.primaryCategories || [];
+              setRowSelection(primary);
+              setColSelection(primary);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-celeste-200 text-sm font-semibold text-celeste-700 hover:bg-celeste-50"
+          >
+            Volver a Autos / Vans / Camiones / Buses
+          </button>
         </div>
       </div>
 
