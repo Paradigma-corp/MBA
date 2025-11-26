@@ -67,7 +67,10 @@ const SalesSuccessCalculator = () => {
       </p>
       <div className="card">
         <h3 className="text-base font-semibold text-slate-900 mb-2">Probabilidad binomial de éxito</h3>
-        <p className="text-sm text-slate-600 mb-3">Configura tus oportunidades, éxitos y tasa de cierre.</p>
+        <p className="text-sm text-slate-600 mb-3">
+          Estima la probabilidad de que un vendedor alcance su meta de ventas usando las oportunidades disponibles (N),
+          los cierres deseados (k) y la tasa de cierre esperada.
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
           <label className="text-slate-700">
             <span className="font-medium">Intentos (N)</span>
