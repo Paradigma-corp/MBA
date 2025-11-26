@@ -377,12 +377,6 @@ const App = () => {
             <span className="hover:text-celeste-200 cursor-pointer">Camiones</span>
             <span className="hover:text-celeste-200 cursor-pointer">Vans</span>
             <span className="hover:text-celeste-200 cursor-pointer">Buses</span>
-            <button
-              type="button"
-              className="px-4 py-2 rounded-full bg-white text-black font-semibold shadow-sm hover:-translate-y-0.5 transition"
-            >
-              Reserva tu cita en taller
-            </button>
           </div>
         </div>
       </div>
@@ -401,7 +395,7 @@ const App = () => {
         </div>
       </div>
       <div className="flex min-h-screen">
-        <aside className="hidden lg:flex w-64 bg-black/70 text-white backdrop-blur-xl border-r border-white/10 flex-col p-5 gap-6 shadow-xl shadow-black/40">
+        <aside className="hidden lg:flex w-64 bg-gradient-to-b from-black/75 via-black/65 to-black/75 text-white backdrop-blur-2xl border-r border-white/15 flex-col p-5 gap-6 shadow-2xl shadow-black/50 saturate-150">
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-black to-celeste-600 text-white flex items-center justify-center shadow-md shadow-celeste-500/40">
               <Home size={20} />
@@ -443,8 +437,8 @@ const App = () => {
           <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 space-y-6">
             <Header />
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="xl:col-span-3 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
                 <div className="relative h-[320px] w-full">
                   <img src={heroSlides[activeSlide].image} alt={heroSlides[activeSlide].title} className="absolute inset-0 w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-transparent" />

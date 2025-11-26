@@ -1,26 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Camiones Mercedes-Benz">
   <defs>
-    <linearGradient id="gc1" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#0b0d14" />
-      <stop offset="100%" stop-color="#0f1a2c" />
+    <linearGradient id="bgTruck" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fbff" />
+      <stop offset="100%" stop-color="#cfe9ff" />
     </linearGradient>
-    <linearGradient id="gc2" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0%" stop-color="#6dd6ff" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="#6dd6ff" stop-opacity="0.8" />
+    <linearGradient id="panelTruck" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#0b0f19" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#0b2c46" stop-opacity="0.75" />
     </linearGradient>
   </defs>
-  <rect width="1600" height="900" fill="url(#gc1)" />
-  <rect x="140" y="500" width="1320" height="200" rx="32" fill="#10192b" stroke="#6dd6ff" stroke-opacity="0.35" stroke-width="5" />
-  <rect x="240" y="480" width="520" height="170" rx="24" fill="#0b1423" stroke="#6dd6ff" stroke-width="4" opacity="0.85" />
-  <rect x="820" y="480" width="520" height="170" rx="24" fill="#0b1423" stroke="#6dd6ff" stroke-width="4" opacity="0.85" />
-  <path d="M280 620 H700" stroke="#b3e7ff" stroke-width="12" stroke-linecap="round" />
-  <path d="M860 620 H1280" stroke="#b3e7ff" stroke-width="12" stroke-linecap="round" />
-  <circle cx="380" cy="710" r="70" fill="#0a0f1f" stroke="#6dd6ff" stroke-width="10" />
-  <circle cx="380" cy="710" r="46" fill="url(#gc2)" />
-  <circle cx="1120" cy="710" r="70" fill="#0a0f1f" stroke="#6dd6ff" stroke-width="10" />
-  <circle cx="1120" cy="710" r="46" fill="url(#gc2)" />
-  <text x="280" y="540" fill="#f5f7fb" font-family="'Space Grotesk', 'Manrope', 'Segoe UI', sans-serif" font-size="40" font-weight="700">Camiones Mercedes-Benz</text>
-  <text x="280" y="580" fill="#c8d9ec" font-family="'Manrope', 'Segoe UI', sans-serif" font-size="23" font-weight="600">Actros · Arocs · logística pesada</text>
-  <rect x="140" y="190" width="330" height="86" rx="18" fill="#0d1526" stroke="#6dd6ff" stroke-width="2" opacity="0.7" />
-  <text x="170" y="244" fill="#eaf6ff" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="32" font-weight="700">Camiones</text>
+  <rect width="1600" height="900" fill="url(#bgTruck)" />
+  <rect x="120" y="520" width="1360" height="200" rx="46" fill="#0b0f19" opacity="0.08" />
+  <rect x="260" y="520" width="1080" height="160" rx="42" fill="#0f1728" opacity="0.88" stroke="#6dd6ff" stroke-width="7" stroke-opacity="0.35" />
+  <path d="M340 610 L640 610 C700 610 740 570 800 570 L1120 570 Q1210 570 1270 610" fill="none" stroke="#6dd6ff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M420 610 C520 545 700 540 820 560 Q1000 590 1200 560" fill="none" stroke="#0b2c46" stroke-width="6" stroke-linecap="round" stroke-dasharray="16 12" />
+  <rect x="430" y="470" width="440" height="90" rx="22" fill="#0b0f19" opacity="0.65" />
+  <rect x="900" y="470" width="280" height="90" rx="22" fill="#0b0f19" opacity="0.85" />
+  <path d="M420 470 L420 540" stroke="#6dd6ff" stroke-width="6" stroke-linecap="round" opacity="0.6" />
+  <circle cx="520" cy="700" r="76" fill="#0b0f19" stroke="#6dd6ff" stroke-width="10" />
+  <circle cx="520" cy="700" r="48" fill="#dff3ff" stroke="#0b1f35" stroke-width="6" />
+  <circle cx="1180" cy="700" r="76" fill="#0b0f19" stroke="#6dd6ff" stroke-width="10" />
+  <circle cx="1180" cy="700" r="48" fill="#dff3ff" stroke="#0b1f35" stroke-width="6" />
+  <path d="M520 540 L720 520 Q820 510 920 520 L1120 540" fill="url(#panelTruck)" opacity="0.7" />
+  <text x="360" y="320" fill="#0b0f19" font-family="'Space Grotesk','Manrope','Segoe UI',sans-serif" font-size="60" font-weight="700">Camiones Mercedes-Benz</text>
+  <text x="360" y="368" fill="#0b2c46" font-family="'Manrope','Segoe UI',sans-serif" font-size="28" font-weight="600">Actros · Arocs · logística pesada confiable</text>
+  <text x="360" y="410" fill="#0b2c46" font-family="'Manrope','Segoe UI',sans-serif" font-size="20" font-weight="500">Potencia y control para operaciones de alto tonelaje</text>
+  <rect x="180" y="150" width="360" height="80" rx="22" fill="#0b0f19" opacity="0.85" />
+  <text x="220" y="203" fill="#e8f6ff" font-family="'Space Grotesk','Segoe UI',sans-serif" font-size="34" font-weight="700">Línea Camiones</text>
 </svg>

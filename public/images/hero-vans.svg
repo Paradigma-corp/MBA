@@ -1,24 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Vans Mercedes-Benz">
   <defs>
-    <linearGradient id="gv1" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#0c101d" />
-      <stop offset="100%" stop-color="#0b1f32" />
+    <linearGradient id="bgVans" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f7fbff" />
+      <stop offset="100%" stop-color="#c9e7ff" />
     </linearGradient>
-    <linearGradient id="gv2" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0%" stop-color="#6dd6ff" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="#6dd6ff" stop-opacity="0.9" />
+    <linearGradient id="panelVans" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#0b0f19" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#0b2c46" stop-opacity="0.75" />
     </linearGradient>
   </defs>
-  <rect width="1600" height="900" fill="url(#gv1)" />
-  <rect x="110" y="510" width="1380" height="190" rx="32" fill="#0d1629" stroke="#6dd6ff" stroke-opacity="0.35" stroke-width="5" />
-  <rect x="240" y="470" width="980" height="150" rx="26" fill="#0b1423" stroke="#6dd6ff" stroke-width="4" opacity="0.85" />
-  <path d="M280 610 C360 560 520 560 620 590 L900 650 Q1020 670 1180 630" fill="none" stroke="#b5e7ff" stroke-width="12" stroke-linecap="round" />
-  <circle cx="440" cy="700" r="70" fill="#0a0f1f" stroke="#6dd6ff" stroke-width="10" />
-  <circle cx="440" cy="700" r="46" fill="url(#gv2)" />
-  <circle cx="1120" cy="700" r="70" fill="#0a0f1f" stroke="#6dd6ff" stroke-width="10" />
-  <circle cx="1120" cy="700" r="46" fill="url(#gv2)" />
-  <text x="280" y="540" fill="#f5f7fb" font-family="'Space Grotesk', 'Manrope', 'Segoe UI', sans-serif" font-size="40" font-weight="700">Vans Mercedes-Benz</text>
-  <text x="280" y="580" fill="#c8d9ec" font-family="'Manrope', 'Segoe UI', sans-serif" font-size="23" font-weight="600">Sprinter · Vito · transporte ejecutivo</text>
-  <rect x="110" y="190" width="330" height="86" rx="18" fill="#0d1526" stroke="#6dd6ff" stroke-width="2" opacity="0.7" />
-  <text x="140" y="244" fill="#eaf6ff" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="32" font-weight="700">Vans</text>
+  <rect width="1600" height="900" fill="url(#bgVans)" />
+  <rect x="150" y="540" width="1300" height="180" rx="44" fill="#0b0f19" opacity="0.08" />
+  <rect x="260" y="520" width="1020" height="150" rx="38" fill="#0f1728" opacity="0.86" stroke="#6dd6ff" stroke-width="6" stroke-opacity="0.35" />
+  <path d="M320 595 C430 540 720 520 900 540 Q1120 570 1250 590" fill="none" stroke="#6dd6ff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M400 600 Q540 540 800 550 Q1040 565 1220 540" fill="none" stroke="#0b2c46" stroke-width="6" stroke-linecap="round" stroke-dasharray="14 12" />
+  <rect x="340" y="480" width="560" height="80" rx="20" fill="#0b0f19" opacity="0.7" />
+  <rect x="940" y="480" width="220" height="80" rx="20" fill="#0b0f19" opacity="0.85" />
+  <circle cx="520" cy="690" r="70" fill="#0b0f19" stroke="#6dd6ff" stroke-width="9" />
+  <circle cx="520" cy="690" r="44" fill="#dff3ff" stroke="#0b1f35" stroke-width="6" />
+  <circle cx="1180" cy="690" r="70" fill="#0b0f19" stroke="#6dd6ff" stroke-width="9" />
+  <circle cx="1180" cy="690" r="44" fill="#dff3ff" stroke="#0b1f35" stroke-width="6" />
+  <path d="M520 540 L720 520 Q820 510 920 520 L1120 540" fill="url(#panelVans)" opacity="0.74" />
+  <text x="360" y="320" fill="#0b0f19" font-family="'Space Grotesk','Manrope','Segoe UI',sans-serif" font-size="60" font-weight="700">Vans Mercedes-Benz</text>
+  <text x="360" y="368" fill="#0b2c46" font-family="'Manrope','Segoe UI',sans-serif" font-size="28" font-weight="600">Sprinter · Vito · reparto urbano y ejecutivo</text>
+  <text x="360" y="410" fill="#0b2c46" font-family="'Manrope','Segoe UI',sans-serif" font-size="20" font-weight="500">Capacidad y eficiencia para última milla premium</text>
+  <rect x="180" y="150" width="360" height="80" rx="22" fill="#0b0f19" opacity="0.85" />
+  <text x="220" y="203" fill="#e8f6ff" font-family="'Space Grotesk','Segoe UI',sans-serif" font-size="34" font-weight="700">Línea Vans</text>
 </svg>
