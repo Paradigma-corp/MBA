@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { computeCategoryCorrelations, computeOneVsManyCorrelations } from '../../utils/analytics.js';
 
 const formatPercent = (value) => `${(value * 100).toFixed(1)}%`;
@@ -19,6 +19,8 @@ const heatColor = (value) => {
 const CategoryCorrelationModule = ({ records }) => {
   const [metric, setMetric] = useState('margen');
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
+  const [rowSelection, setRowSelection] = useState([]);
+  const [colSelection, setColSelection] = useState([]);
 
   const correlationData = useMemo(() => {
     try {
@@ -28,6 +30,12 @@ const CategoryCorrelationModule = ({ records }) => {
       return { categories: [], matrices: {} };
     }
   }, [records]);
+
+  useEffect(() => {
+    const cats = correlationData.categories || [];
+    setRowSelection(cats);
+    setColSelection(cats);
+  }, [correlationData.categories]);
 
   const oneVsMany = useMemo(() => {
     try {
@@ -39,6 +47,21 @@ const CategoryCorrelationModule = ({ records }) => {
   }, [records]);
 
   const activeMatrix = correlationData.matrices?.[metric] || [];
+  const selectedRows = rowSelection.length ? rowSelection : correlationData.categories;
+  const selectedCols = colSelection.length ? colSelection : correlationData.categories;
+
+  const correlationForPair = (rowCat, colCat) => {
+    const rowIndex = correlationData.categories.indexOf(rowCat);
+    const colIndex = correlationData.categories.indexOf(colCat);
+    if (rowIndex === -1 || colIndex === -1) return 0;
+    const value = activeMatrix[rowIndex]?.[colIndex];
+    return Number.isFinite(value) ? value : 0;
+  };
+
+  const handleSelectChange = (setter) => (event) => {
+    const values = Array.from(event.target.selectedOptions).map((opt) => opt.value);
+    setter(values);
+  };
 
   const HeatmapGrid = ({
     withLabels = false,
@@ -50,28 +73,28 @@ const CategoryCorrelationModule = ({ records }) => {
       className={`grid gap-2 text-center font-semibold text-slate-900 ${textSize}`}
       style={{
         gridTemplateColumns: withLabels
-          ? `140px repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`
-          : `repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`,
+          ? `140px repeat(${selectedCols.length || 1}, minmax(0, 1fr))`
+          : `repeat(${selectedCols.length || 1}, minmax(0, 1fr))`,
         minWidth,
       }}
     >
       {withLabels && <div className="" />}
       {withLabels &&
-        correlationData.categories.map((cat) => (
+        selectedCols.map((cat) => (
           <div key={`col-${cat}`} className="text-slate-600 text-xs uppercase tracking-[0.08em]">
             {cat}
           </div>
         ))}
-      {correlationData.categories.map((cat, rowIdx) => (
-        <React.Fragment key={cat}>
-          {withLabels && <div className="text-right pr-2 text-slate-700 font-semibold">{cat}</div>}
-          {activeMatrix[rowIdx]?.map((value, colIdx) => {
-            const displayValue = Number.isFinite(value) ? value : 0;
+      {selectedRows.map((rowCat) => (
+        <React.Fragment key={rowCat}>
+          {withLabels && <div className="text-right pr-2 text-slate-700 font-semibold">{rowCat}</div>}
+          {selectedCols.map((colCat, colIdx) => {
+            const displayValue = correlationForPair(rowCat, colCat);
             return (
               <div
-                key={`${cat}-${colIdx}`}
+                key={`${rowCat}-${colCat}`}
                 className={`rounded-lg px-2 ${cellPadding}`}
-                style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(displayValue) }}
+                style={{ backgroundColor: rowCat === colCat ? '#f8fafc' : heatColor(displayValue) }}
               >
                 {displayValue.toFixed(2)}
               </div>
@@ -96,7 +119,7 @@ const CategoryCorrelationModule = ({ records }) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase text-slate-500">Correlación 1 a 1</p>
-          <h4 className="text-base font-semibold text-slate-900">Matriz 4x4 por métrica</h4>
+          <h4 className="text-base font-semibold text-slate-900">Matriz por métrica</h4>
           <p className="text-sm text-slate-600">Coeficientes de Pearson recalculados con los filtros activos.</p>
         </div>
         <div className="flex items-center gap-2 text-xs bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
@@ -122,12 +145,47 @@ const CategoryCorrelationModule = ({ records }) => {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
+        <div>
+          <p className="text-xs uppercase text-slate-500">Filas (eje Y)</p>
+          <select
+            multiple
+            value={rowSelection}
+            onChange={handleSelectChange(setRowSelection)}
+            className="w-full mt-1 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 p-2"
+          >
+            {correlationData.categories.map((cat) => (
+              <option key={`row-${cat}`} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-1">Selecciona qué categorías aparecen en el eje Y.</p>
+        </div>
+        <div>
+          <p className="text-xs uppercase text-slate-500">Columnas (eje X)</p>
+          <select
+            multiple
+            value={colSelection}
+            onChange={handleSelectChange(setColSelection)}
+            className="w-full mt-1 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 p-2"
+          >
+            {correlationData.categories.map((cat) => (
+              <option key={`col-${cat}`} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-1">Elige qué categorías se muestran en el eje X.</p>
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm text-slate-700 border-collapse">
           <thead>
             <tr>
               <th className="p-2 text-left text-xs uppercase tracking-[0.08em] text-slate-500">Categoría</th>
-              {correlationData.categories.map((cat) => (
+              {selectedCols.map((cat) => (
                 <th key={cat} className="p-2 text-center text-xs uppercase tracking-[0.08em] text-slate-500">
                   {cat}
                 </th>
@@ -135,16 +193,16 @@ const CategoryCorrelationModule = ({ records }) => {
             </tr>
           </thead>
           <tbody>
-            {correlationData.categories.map((cat, rowIdx) => (
+            {selectedRows.map((cat) => (
               <tr key={cat} className="border-t border-slate-100">
                 <td className="p-2 font-medium text-slate-900">{cat}</td>
-                {activeMatrix[rowIdx]?.map((value, colIdx) => {
-                  const displayValue = Number.isFinite(value) ? value : 0;
+                {selectedCols.map((colCat) => {
+                  const displayValue = correlationForPair(cat, colCat);
                   return (
-                  <td key={`${cat}-${colIdx}`} className="p-1 text-center">
+                  <td key={`${cat}-${colCat}`} className="p-1 text-center">
                     <div
                       className="rounded-lg px-2 py-1 text-sm font-semibold text-slate-900"
-                      style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(displayValue) }}
+                      style={{ backgroundColor: cat === colCat ? '#f8fafc' : heatColor(displayValue) }}
                     >
                       {displayValue.toFixed(2)}
                     </div>

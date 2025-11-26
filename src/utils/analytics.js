@@ -35,31 +35,35 @@ const sumRecordValues = (target, record) => {
 };
 
 const buildCategorySeries = (records) => {
-  const canonicalCategories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+  return records.reduce(
+    (acc, record) => {
+      const category =
+        normalizeBusinessLine(
+          record.lineaNegocio ||
+            record['Linea de negocio'] ||
+            record['Línea de negocio'] ||
+            record['lineaNegocio'] ||
+            record['Linea Negocio'] ||
+            record['Línea Negocio'] ||
+            record['linea de negocio'] ||
+            record['línea de negocio'],
+        ) || record['Nombre segmentación'] || record.segmentacionIGD;
 
-  return records.reduce((acc, record) => {
-    const category =
-      normalizeBusinessLine(
-        record.lineaNegocio ||
-          record['Linea de negocio'] ||
-          record['Línea de negocio'] ||
-          record['lineaNegocio'] ||
-          record['Linea Negocio'] ||
-          record['Línea Negocio'] ||
-          record['linea de negocio'] ||
-          record['línea de negocio'],
-      ) || record['Nombre segmentación'] || record.segmentacionIGD;
+      if (!category) return acc;
 
-    if (!category || !canonicalCategories.includes(category)) return acc;
-
-    const period = `${record.Año || record.year || 's/f'}-${record.Mes || record.month || 's/m'}`;
-    if (!acc[category]) acc[category] = {};
-    if (!acc[category][period]) {
-      acc[category][period] = { ingresos: 0, costos: 0, margen: 0, unidades: 0, count: 0 };
-    }
-    acc[category][period] = sumRecordValues(acc[category][period], record);
-    return acc;
-  }, {});
+      const period = `${record.Año || record.year || 's/f'}-${record.Mes || record.month || 's/m'}`;
+      if (!acc.series[category]) {
+        acc.series[category] = {};
+        acc.categories.add(category);
+      }
+      if (!acc.series[category][period]) {
+        acc.series[category][period] = { ingresos: 0, costos: 0, margen: 0, unidades: 0, count: 0 };
+      }
+      acc.series[category][period] = sumRecordValues(acc.series[category][period], record);
+      return acc;
+    },
+    { series: {}, categories: new Set() },
+  );
 };
 
 const alignValuesByPeriod = (seriesA, seriesB, metric) => {
@@ -78,8 +82,8 @@ const interpretCorrelationStrength = (value) => {
 
 export const computeCategoryCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
-  const series = buildCategorySeries(safeRecords);
-  const categories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+  const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
+  const categories = Array.from(foundCategories).sort();
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
   const matrices = {};
 
@@ -98,8 +102,8 @@ export const computeCategoryCorrelations = (records) => {
 
 export const computeOneVsManyCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
-  const series = buildCategorySeries(safeRecords);
-  const categories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+  const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
+  const categories = Array.from(foundCategories).sort();
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
 
   return categories.map((category) => {
