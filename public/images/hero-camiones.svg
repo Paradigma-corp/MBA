@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <linearGradient id="gc1" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b0d14" />
+      <stop offset="100%" stop-color="#0f1a2c" />
+    </linearGradient>
+    <linearGradient id="gc2" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#6dd6ff" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#6dd6ff" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#gc1)" />
+  <rect x="140" y="500" width="1320" height="200" rx="32" fill="#10192b" stroke="#6dd6ff" stroke-opacity="0.35" stroke-width="5" />
+  <rect x="240" y="480" width="520" height="170" rx="24" fill="#0b1423" stroke="#6dd6ff" stroke-width="4" opacity="0.85" />
+  <rect x="820" y="480" width="520" height="170" rx="24" fill="#0b1423" stroke="#6dd6ff" stroke-width="4" opacity="0.85" />
+  <path d="M280 620 H700" stroke="#b3e7ff" stroke-width="12" stroke-linecap="round" />
+  <path d="M860 620 H1280" stroke="#b3e7ff" stroke-width="12" stroke-linecap="round" />
+  <circle cx="380" cy="710" r="70" fill="#0a0f1f" stroke="#6dd6ff" stroke-width="10" />
+  <circle cx="380" cy="710" r="46" fill="url(#gc2)" />
+  <circle cx="1120" cy="710" r="70" fill="#0a0f1f" stroke="#6dd6ff" stroke-width="10" />
+  <circle cx="1120" cy="710" r="46" fill="url(#gc2)" />
+  <text x="280" y="540" fill="#f5f7fb" font-family="'Space Grotesk', 'Manrope', 'Segoe UI', sans-serif" font-size="40" font-weight="700">Camiones Mercedes-Benz</text>
+  <text x="280" y="580" fill="#c8d9ec" font-family="'Manrope', 'Segoe UI', sans-serif" font-size="23" font-weight="600">Actros · Arocs · logística pesada</text>
+  <rect x="140" y="190" width="330" height="86" rx="18" fill="#0d1526" stroke="#6dd6ff" stroke-width="2" opacity="0.7" />
+  <text x="170" y="244" fill="#eaf6ff" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="32" font-weight="700">Camiones</text>
+</svg>

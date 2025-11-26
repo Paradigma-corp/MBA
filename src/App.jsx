@@ -37,23 +37,22 @@ const heroSlides = [
   {
     title: 'Automóviles',
     subtitle: 'Mercedes-Benz EQS y Clase E para dirección y flotas ejecutivas.',
-    image:
-      'https://upload.wikimedia.org/wikipedia/commons/4/46/2022_Mercedes-Benz_EQS_450%2B_AMG_Line.jpg',
+    image: '/images/hero-automoviles.svg',
   },
   {
     title: 'Camiones',
     subtitle: 'Tractos Mercedes-Benz Actros listos para logística pesada confiable.',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/1/12/2018_Mercedes-Benz_Actros_2545.jpg',
+    image: '/images/hero-camiones.svg',
   },
   {
     title: 'Vans',
     subtitle: 'Mercedes-Benz Sprinter para reparto urbano y transporte ejecutivo.',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/2/28/2018_Mercedes-Benz_Sprinter_314CDI_LWB.jpg',
+    image: '/images/hero-vans.svg',
   },
   {
     title: 'Buses',
     subtitle: 'Mercedes-Benz Citaro para rutas con confort y eficiencia.',
-    image: 'https://upload.wikimedia.org/wikipedia/commons/5/50/Mercedes-Benz_Citaro_in_RTB_depots.jpg',
+    image: '/images/hero-buses.svg',
   },
 ];
 
@@ -402,13 +401,13 @@ const App = () => {
         </div>
       </div>
       <div className="flex min-h-screen">
-        <aside className="hidden lg:flex w-64 bg-white/85 backdrop-blur-xl border-r border-slate-200/80 flex-col p-5 gap-6 shadow-md shadow-slate-200/60">
+        <aside className="hidden lg:flex w-64 bg-black/70 text-white backdrop-blur-xl border-r border-white/10 flex-col p-5 gap-6 shadow-xl shadow-black/40">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-black to-celeste-600 text-white flex items-center justify-center shadow-md">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-black to-celeste-600 text-white flex items-center justify-center shadow-md shadow-celeste-500/40">
               <Home size={20} />
             </div>
             <div>
-              <p className="text-xs text-slate-500">Divemotor</p>
+              <p className="text-xs text-white/70">Divemotor</p>
               <p className="font-semibold">Executive Suite</p>
             </div>
           </div>
@@ -419,7 +418,7 @@ const App = () => {
                 <button
                   key={item.label}
                   type="button"
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm text-slate-700 hover:bg-celeste-50 hover:text-celeste-700 transition"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm text-white/85 hover:bg-white/10 hover:text-white transition border border-white/5"
                 >
                   <Icon size={16} />
                   <span className="font-medium">{item.label}</span>
@@ -428,14 +427,14 @@ const App = () => {
             })}
           </nav>
           <div className="mt-auto space-y-3">
-            <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-sm">
-              <p className="text-[11px] uppercase text-slate-500">Origen de datos</p>
-              <p className="font-semibold">{dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}</p>
-              <p className="text-xs text-slate-500 mt-1">10,741 registros procesados vía Web Worker.</p>
+            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-sm backdrop-blur">
+              <p className="text-[11px] uppercase text-white/60">Origen de datos</p>
+              <p className="font-semibold text-white">{dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}</p>
+              <p className="text-xs text-white/60 mt-1">10,741 registros procesados vía Web Worker.</p>
             </div>
-            <div className="flex items-center gap-2 text-celeste-700 text-sm">
+            <div className="flex items-center gap-2 text-celeste-100 text-sm">
               <ShieldCheck size={16} />
-              <span>Procesamiento seguro y sin bloqueos</span>
+              <span className="text-white">Procesamiento seguro y sin bloqueos</span>
             </div>
           </div>
         </aside>
