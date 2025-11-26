@@ -16,8 +16,9 @@ Este repositorio contiene el dashboard estadístico para DIVEMOTOR. Consulta `BR
 6. Asegúrate de que tu CSV incluya al menos estas columnas: `Nombre segmentación`, `Vendedor SAP`, `nombreVendedor`, `Unidades UN`, `ingresos`, `costos`, `margen`.
 
 ### Filtros rápidos de análisis
-- Tras cargar el CSV (o con los datos demo), usa la tarjeta **“Filtros de análisis”** para acotar los cálculos por Año, Segmentación o Vendedor SAP.
+- Tras cargar el CSV (o con los datos demo), usa la tarjeta **“Filtros de análisis”** para acotar los cálculos por **Nuevos / Usados (línea de negocio)** y por **Año** (puedes marcar varios a la vez).
 - El contador de registros filtrados confirma cuántas filas se están usando en las visualizaciones, KPIs y el resumen estadístico.
+- Si tu CSV incluye una columna de línea de negocio, nombrala como `lineaNegocio`, `Linea de negocio` o `Línea de negocio` para que el filtro la detecte automáticamente; de lo contrario, el selector mostrará solo la opción “Todos”.
 
 ### Correlaciones y dispersión
 - La tarjeta **“Correlaciones”** muestra los coeficientes de Pearson para margen con ingresos, costos y unidades, recalculados según los filtros activos.

@@ -48,9 +48,8 @@ const App = () => {
   const [dataSource, setDataSource] = useState('demo');
   const [workerReady, setWorkerReady] = useState(false);
   const [filters, setFilters] = useState({
-    year: 'all',
-    segment: 'all',
-    vendor: 'all',
+    years: [],
+    businessLine: 'all',
   });
   const [activeModal, setActiveModal] = useState(null);
   const workerRef = useRef(null);
@@ -68,12 +67,21 @@ const App = () => {
     return () => worker.terminate();
   }, []);
 
+  const businessLineOf = (record) =>
+    record.lineaNegocio ||
+    record['Linea de negocio'] ||
+    record['Línea de negocio'] ||
+    record['lineaNegocio'] ||
+    record['Linea Negocio'] ||
+    record['Línea Negocio'];
+
   const filteredRecords = useMemo(() => {
     return rawRecords.filter((record) => {
-      const matchYear = filters.year === 'all' || record.Año === Number(filters.year);
-      const matchSegment = filters.segment === 'all' || record['Nombre segmentación'] === filters.segment;
-      const matchVendor = filters.vendor === 'all' || record['Vendedor SAP'] === filters.vendor;
-      return matchYear && matchSegment && matchVendor;
+      const matchYear = filters.years.length === 0 || filters.years.includes(record.Año);
+      const line = businessLineOf(record);
+      const matchBusiness =
+        filters.businessLine === 'all' || (line && line.toString().toLowerCase() === filters.businessLine.toLowerCase());
+      return matchYear && matchBusiness;
     });
   }, [filters, rawRecords]);
 
@@ -94,7 +102,7 @@ const App = () => {
       skipEmptyLines: true,
       complete: (results) => {
         const parsed = results.data.filter((row) => row['Nombre segmentación']);
-        setFilters({ year: 'all', segment: 'all', vendor: 'all' });
+        setFilters({ years: [], businessLine: 'all' });
         setRawRecords(parsed);
         setDataSource('imported');
       },
@@ -110,7 +118,7 @@ const App = () => {
     setSalespeople(transformToSalespeople(demoRecords));
     setCorrelations(computeCorrelations(demoRecords));
     setRawRecords(demoRecords);
-    setFilters({ year: 'all', segment: 'all', vendor: 'all' });
+    setFilters({ years: [], businessLine: 'all' });
     setDataSource('demo');
   };
 
@@ -162,9 +170,15 @@ const App = () => {
 
   const filterOptions = useMemo(() => {
     const years = Array.from(new Set(rawRecords.map((item) => item.Año).filter(Boolean))).sort((a, b) => a - b);
-    const segments = Array.from(new Set(rawRecords.map((item) => item['Nombre segmentación']).filter(Boolean))).sort();
-    const vendors = Array.from(new Set(rawRecords.map((item) => item['Vendedor SAP']).filter(Boolean))).sort();
-    return { years, segments, vendors };
+    const businessLines = Array.from(
+      new Set(
+        rawRecords
+          .map((item) => businessLineOf(item))
+          .filter((value) => value !== undefined && value !== null)
+          .map((value) => value.toString()),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+    return { years, businessLines };
   }, [rawRecords]);
 
   const formatNumber = (value, options = {}) =>
@@ -421,70 +435,97 @@ const App = () => {
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                   <p className="text-xs uppercase text-slate-500">Filtros de análisis</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Acota por año, segmentación o vendedor</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Nuevos / Usados y años relevantes</h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFilters({ year: 'all', segment: 'all', vendor: 'all' })}
+                  onClick={() => setFilters({ years: [], businessLine: 'all' })}
                   className="text-sm text-celeste-700 hover:text-celeste-800"
                 >
                   Limpiar filtros
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs uppercase text-slate-500">Año</label>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-celeste-200"
-                    value={filters.year}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, year: e.target.value === 'all' ? 'all' : Number(e.target.value) }))}
-                  >
-                    <option value="all">Todos</option>
-                    {filterOptions.years.map((year) => (
-                      <option key={year} value={year}>
-                        {year}
-                      </option>
-                    ))}
-                  </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <label className="text-xs uppercase text-slate-500">Nuevos / Usados (línea de negocio)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[{ label: 'Todos', value: 'all' }, ...filterOptions.businessLines.map((line) => ({ label: line, value: line }))].map(
+                      (option) => {
+                        const active = filters.businessLine === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setFilters((prev) => ({ ...prev, businessLine: option.value }))}
+                            className={`px-3 py-2 rounded-xl border text-sm transition ${
+                              active
+                                ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
+                                : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">Selecciona si quieres ver solo unidades nuevas, usadas o todo.</p>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs uppercase text-slate-500">Segmentación</label>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-celeste-200"
-                    value={filters.segment}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, segment: e.target.value }))}
-                  >
-                    <option value="all">Todas</option>
-                    {filterOptions.segments.map((segment) => (
-                      <option key={segment} value={segment}>
-                        {segment}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs uppercase text-slate-500">Vendedor SAP</label>
-                  <select
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-celeste-200"
-                    value={filters.vendor}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, vendor: e.target.value }))}
-                  >
-                    <option value="all">Todos</option>
-                    {filterOptions.vendors.map((vendor) => (
-                      <option key={vendor} value={vendor}>
-                        {vendor}
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-3">
+                  <label className="text-xs uppercase text-slate-500">Año (selección múltiple)</label>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFilters((prev) => ({ ...prev, years: [] }))}
+                      className={`px-3 py-2 rounded-xl border text-sm transition ${
+                        filters.years.length === 0
+                          ? 'bg-celeste-50 border-celeste-200 text-celeste-800'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                      }`}
+                    >
+                      Todos los años
+                    </button>
+                    {filterOptions.years.map((year) => {
+                      const active = filters.years.includes(year);
+                      return (
+                        <button
+                          key={year}
+                          type="button"
+                          onClick={() =>
+                            setFilters((prev) => {
+                              const exists = prev.years.includes(year);
+                              const nextYears = exists ? prev.years.filter((y) => y !== year) : [...prev.years, year];
+                              return { ...prev, years: nextYears.sort((a, b) => a - b) };
+                            })
+                          }
+                          className={`px-3 py-2 rounded-xl border text-sm transition ${
+                            active
+                              ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                          }`}
+                        >
+                          {year}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-slate-500">Puedes combinar varios años para un análisis acumulado.</p>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
                   <BarChart3 size={12} /> {filteredRecords.length.toLocaleString()} registros filtrados
                 </span>
-                {filters.year !== 'all' && <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">Año {filters.year}</span>}
-                {filters.segment !== 'all' && <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">{filters.segment}</span>}
-                {filters.vendor !== 'all' && <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">SAP {filters.vendor}</span>}
+                {filters.years.length > 0 && (
+                  <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
+                    Años {filters.years.join(', ')}
+                  </span>
+                )}
+                {filters.businessLine !== 'all' && (
+                  <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
+                    {filters.businessLine}
+                  </span>
+                )}
               </div>
             </div>
 

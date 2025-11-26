@@ -1,4 +1,4 @@
-export const demoRecords = [
+const baseDemoRecords = [
   {
     Año: 2024,
     Mes: 1,
@@ -55,6 +55,11 @@ export const demoRecords = [
     margen: 21200,
   },
 ];
+
+export const demoRecords = baseDemoRecords.map((record, index) => ({
+  ...record,
+  lineaNegocio: record.lineaNegocio || (index % 3 === 0 ? 'Usados' : 'Nuevos'),
+}));
 
 export const demoCategories = [
   {
