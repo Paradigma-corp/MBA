@@ -35,6 +35,8 @@ const sumRecordValues = (target, record) => {
 };
 
 const buildCategorySeries = (records) => {
+  const canonicalCategories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+
   return records.reduce((acc, record) => {
     const category =
       normalizeBusinessLine(
@@ -48,7 +50,8 @@ const buildCategorySeries = (records) => {
           record['línea de negocio'],
       ) || record['Nombre segmentación'] || record.segmentacionIGD;
 
-    if (!category) return acc;
+    if (!category || !canonicalCategories.includes(category)) return acc;
+
     const period = `${record.Año || record.year || 's/f'}-${record.Mes || record.month || 's/m'}`;
     if (!acc[category]) acc[category] = {};
     if (!acc[category][period]) {
@@ -76,7 +79,7 @@ const interpretCorrelationStrength = (value) => {
 export const computeCategoryCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
   const series = buildCategorySeries(safeRecords);
-  const categories = Object.keys(series);
+  const categories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
   const matrices = {};
 
@@ -84,7 +87,7 @@ export const computeCategoryCorrelations = (records) => {
     matrices[metric] = categories.map((catA) =>
       categories.map((catB) => {
         if (catA === catB) return 1;
-        const { valuesA, valuesB } = alignValuesByPeriod(series[catA], series[catB], metric);
+        const { valuesA, valuesB } = alignValuesByPeriod(series[catA] || {}, series[catB] || {}, metric);
         return correlationCoefficient(valuesA, valuesB);
       }),
     );
@@ -96,14 +99,14 @@ export const computeCategoryCorrelations = (records) => {
 export const computeOneVsManyCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
   const series = buildCategorySeries(safeRecords);
-  const categories = Object.keys(series);
+  const categories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
 
   return categories.map((category) => {
     const remainingPeriods = {};
     categories.forEach((other) => {
       if (other === category) return;
-      Object.entries(series[other]).forEach(([period, data]) => {
+      Object.entries(series[other] || {}).forEach(([period, data]) => {
         if (!remainingPeriods[period]) {
           remainingPeriods[period] = { ingresos: 0, costos: 0, margen: 0, unidades: 0 };
         }
@@ -115,7 +118,7 @@ export const computeOneVsManyCorrelations = (records) => {
     });
 
     const correlations = metrics.reduce((acc, metric) => {
-      const { valuesA, valuesB } = alignValuesByPeriod(series[category], remainingPeriods, metric);
+      const { valuesA, valuesB } = alignValuesByPeriod(series[category] || {}, remainingPeriods, metric);
       const rho = correlationCoefficient(valuesA, valuesB);
       acc[metric] = rho;
       return acc;

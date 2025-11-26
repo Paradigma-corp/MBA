@@ -40,13 +40,19 @@ const CategoryCorrelationModule = ({ records }) => {
 
   const activeMatrix = correlationData.matrices?.[metric] || [];
 
-  const HeatmapGrid = ({ withLabels = false, cellPadding = 'py-3', textSize = 'text-xs' }) => (
+  const HeatmapGrid = ({
+    withLabels = false,
+    cellPadding = 'py-3',
+    textSize = 'text-xs',
+    minWidth = '520px',
+  }) => (
     <div
       className={`grid gap-2 text-center font-semibold text-slate-900 ${textSize}`}
       style={{
         gridTemplateColumns: withLabels
-          ? `120px repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`
+          ? `140px repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`
           : `repeat(${correlationData.categories.length || 1}, minmax(0, 1fr))`,
+        minWidth,
       }}
     >
       {withLabels && <div className="" />}
@@ -168,7 +174,9 @@ const CategoryCorrelationModule = ({ records }) => {
             </button>
           </div>
           <p className="text-xs text-slate-500 mb-2">Vista compacta (toque para ampliar).</p>
-          <HeatmapGrid cellPadding="py-4" />
+          <div className="overflow-auto max-h-[460px]">
+            <HeatmapGrid cellPadding="py-4" minWidth="640px" />
+          </div>
         </div>
 
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -220,8 +228,8 @@ const CategoryCorrelationModule = ({ records }) => {
                 Cerrar ✕
               </button>
             </div>
-            <div className="p-6 overflow-auto">
-              <HeatmapGrid withLabels textSize="text-sm" cellPadding="py-4" />
+            <div className="p-6 overflow-auto max-h-[70vh]">
+              <HeatmapGrid withLabels textSize="text-sm" cellPadding="py-4" minWidth="860px" />
             </div>
           </div>
         </div>
