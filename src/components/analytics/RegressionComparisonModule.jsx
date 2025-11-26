@@ -11,15 +11,51 @@ const significanceTag = (beta, maxAbs) => {
   return 'Baja';
 };
 
+const fallbackModel = {
+  betas: { Automóviles: 0, Vans: 0, Camiones: 0, Buses: 0 },
+  rSquared: 0,
+  rSquaredWithoutAuto: 0,
+  averageOtherBeta: 0,
+  deltaR2: 0,
+  table: [
+    { category: 'Automóviles', beta: 0, impact: 'Sin impacto' },
+    { category: 'Vans', beta: 0, impact: 'Sin impacto' },
+    { category: 'Camiones', beta: 0, impact: 'Sin impacto' },
+    { category: 'Buses', beta: 0, impact: 'Sin impacto' },
+  ],
+  maxAbsBeta: 1,
+  summary: { interpretation: 'Ajusta las β para ver la comparación entre Autos y el grupo.' },
+};
+
 const RegressionComparisonModule = ({ records }) => {
-  const model = useMemo(() => buildRegressionModel(records), [records]);
+  const model = useMemo(() => {
+    try {
+      return buildRegressionModel(records);
+    } catch (error) {
+      console.error('Regression model error', error);
+      return fallbackModel;
+    }
+  }, [records]);
+
   const [betas, setBetas] = useState(model.betas);
 
   useEffect(() => {
     setBetas(model.betas);
   }, [model.betas]);
 
-  const recalculated = useMemo(() => recomputeModelWithBetas(records, betas), [records, betas]);
+  const recalculated = useMemo(() => {
+    try {
+      return recomputeModelWithBetas(records, betas);
+    } catch (error) {
+      console.error('Regression recompute error', error);
+      return {
+        rSquared: 0,
+        rSquaredWithoutAuto: 0,
+        averageOtherBeta: 0,
+        deltaR2: 0,
+      };
+    }
+  }, [records, betas]);
 
   const autoVsOthers = betas.Automóviles - recalculated.averageOtherBeta;
   const deltaR2Label = recalculated.deltaR2 >= 0 ? 'disminuye' : 'aumenta';

@@ -19,8 +19,24 @@ const heatColor = (value) => {
 const CategoryCorrelationModule = ({ records }) => {
   const [metric, setMetric] = useState('margen');
 
-  const correlationData = useMemo(() => computeCategoryCorrelations(records), [records]);
-  const oneVsMany = useMemo(() => computeOneVsManyCorrelations(records), [records]);
+  const correlationData = useMemo(() => {
+    try {
+      return computeCategoryCorrelations(records);
+    } catch (error) {
+      console.error('Correlation matrix error', error);
+      return { categories: [], matrices: {} };
+    }
+  }, [records]);
+
+  const oneVsMany = useMemo(() => {
+    try {
+      return computeOneVsManyCorrelations(records);
+    } catch (error) {
+      console.error('One-vs-many correlation error', error);
+      return [];
+    }
+  }, [records]);
+
   const activeMatrix = correlationData.matrices?.[metric] || [];
 
   if (!correlationData.categories.length) {
@@ -78,16 +94,19 @@ const CategoryCorrelationModule = ({ records }) => {
             {correlationData.categories.map((cat, rowIdx) => (
               <tr key={cat} className="border-t border-slate-100">
                 <td className="p-2 font-medium text-slate-900">{cat}</td>
-                {activeMatrix[rowIdx]?.map((value, colIdx) => (
+                {activeMatrix[rowIdx]?.map((value, colIdx) => {
+                  const displayValue = Number.isFinite(value) ? value : 0;
+                  return (
                   <td key={`${cat}-${colIdx}`} className="p-1 text-center">
                     <div
                       className="rounded-lg px-2 py-1 text-sm font-semibold text-slate-900"
-                      style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(value) }}
+                      style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(displayValue) }}
                     >
-                      {value.toFixed(2)}
+                      {displayValue.toFixed(2)}
                     </div>
                   </td>
-                ))}
+                  );
+                })}
               </tr>
             ))}
           </tbody>
@@ -104,15 +123,18 @@ const CategoryCorrelationModule = ({ records }) => {
           >
             {correlationData.categories.map((cat, rowIdx) => (
               <React.Fragment key={cat}>
-                {activeMatrix[rowIdx]?.map((value, colIdx) => (
+                {activeMatrix[rowIdx]?.map((value, colIdx) => {
+                  const displayValue = Number.isFinite(value) ? value : 0;
+                  return (
                   <div
                     key={`${cat}-${colIdx}`}
                     className="rounded-lg px-2 py-3"
-                    style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(value) }}
+                    style={{ backgroundColor: rowIdx === colIdx ? '#f8fafc' : heatColor(displayValue) }}
                   >
-                    {value.toFixed(2)}
+                    {displayValue.toFixed(2)}
                   </div>
-                ))}
+                  );
+                })}
               </React.Fragment>
             ))}
           </div>
@@ -134,11 +156,14 @@ const CategoryCorrelationModule = ({ records }) => {
                   <p className="text-sm text-slate-600">{item.summary}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
-                  {[{ label: 'Margen', key: 'margen' }, { label: 'Ingresos', key: 'ingresos' }, { label: 'Costos', key: 'costos' }, { label: 'Unidades', key: 'unidades' }].map(({ label, key }) => (
-                    <span key={key} className={`px-3 py-1 rounded-full border ${strengthColor(item.correlations[key])}`}>
-                      {label}: {item.correlations[key].toFixed(2)} ({formatPercent(item.correlations[key])})
-                    </span>
-                  ))}
+                  {[{ label: 'Margen', key: 'margen' }, { label: 'Ingresos', key: 'ingresos' }, { label: 'Costos', key: 'costos' }, { label: 'Unidades', key: 'unidades' }].map(({ label, key }) => {
+                    const rho = Number.isFinite(item.correlations?.[key]) ? item.correlations[key] : 0;
+                    return (
+                      <span key={key} className={`px-3 py-1 rounded-full border ${strengthColor(rho)}`}>
+                        {label}: {rho.toFixed(2)} ({formatPercent(rho)})
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             ))}
