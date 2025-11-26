@@ -371,19 +371,6 @@ const App = () => {
           </div>
         ),
       },
-      worker: {
-        title: 'Procesamiento con Web Worker',
-        body: (
-          <div className="space-y-3 text-sm text-slate-700">
-            <p>Las transformaciones, correlaciones y bootstrap se ejecutan fuera del hilo principal para evitar bloqueos.</p>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li>CSV de 10,741 filas se parsea y agrupa en background.</li>
-              <li>Las visualizaciones se actualizan cuando el worker responde con categorías, vendedores y correlaciones.</li>
-              <li>Puedes volver a datos demo sin recargar la página.</li>
-            </ul>
-          </div>
-        ),
-      },
     }),
     [categories, correlations, statSummary, totals],
   );
@@ -920,23 +907,6 @@ const App = () => {
               />
             </div>
 
-            <div className="card border border-slate-200/80 shadow-md flex flex-wrap items-center justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Respaldo</p>
-                <h3 className="text-lg font-semibold text-slate-900">Worker dedicado para las 10,741 filas</h3>
-                <p className="text-sm text-slate-600">Transformación y bootstrap corren fuera del hilo principal para mantener la UI suave.</p>
-              </div>
-              <div className="px-4 py-3 rounded-2xl bg-celeste-50 text-celeste-700 border border-celeste-100 flex items-center gap-2">
-                <ShieldCheck size={16} /> Estabilidad garantizada
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveModal('worker')}
-                className="text-sm text-celeste-700 hover:text-celeste-800"
-              >
-                Ver detalle en popup
-              </button>
-            </div>
           </div>
         </div>
       </div>
