@@ -1,21 +1,30 @@
 import React from 'react';
-import { Gauge, Rocket } from 'lucide-react';
+import { Bell, CalendarDays, Rocket, Sparkles } from 'lucide-react';
 
 const Header = () => (
   <header className="flex flex-wrap items-center justify-between gap-4">
     <div className="flex items-center gap-3">
-      <div className="h-12 w-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+      <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-500 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
         <Rocket />
       </div>
       <div className="space-y-1">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Divemotor Dashboard</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Análisis estadístico avanzado</h1>
-        <p className="text-sm text-slate-600">Insights de margen, ingresos y probabilidad de cierre en segundos.</p>
+        <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Divemotor Dashboard</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Panel ejecutivo de desempeño</h1>
+        <p className="text-sm text-slate-600">Monitorea márgenes, ingresos y metas de cierre con exactitud estadística.</p>
       </div>
     </div>
-    <div className="flex items-center gap-3 text-sm text-slate-800 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
-      <Gauge size={18} className="text-indigo-600" />
-      <span className="font-medium">Rendimiento en tiempo real</span>
+    <div className="flex items-center gap-3 text-sm">
+      <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-white/80 border border-slate-200 shadow-sm text-slate-700">
+        <CalendarDays size={18} className="text-indigo-600" />
+        <span>Semana analizada: Hoy</span>
+      </div>
+      <button type="button" className="h-10 w-10 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-slate-600 hover:text-indigo-600">
+        <Bell size={18} />
+      </button>
+      <div className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-md">
+        <Sparkles size={16} />
+        <span className="text-sm font-semibold">Live insights</span>
+      </div>
     </div>
   </header>
 );
