@@ -21,6 +21,7 @@ const CategoryCorrelationModule = ({ records }) => {
 
   const correlationData = useMemo(() => computeCategoryCorrelations(records), [records]);
   const oneVsMany = useMemo(() => computeOneVsManyCorrelations(records), [records]);
+  const activeMatrix = correlationData.matrices?.[metric] || [];
 
   if (!correlationData.categories.length) {
     return (
@@ -77,7 +78,7 @@ const CategoryCorrelationModule = ({ records }) => {
             {correlationData.categories.map((cat, rowIdx) => (
               <tr key={cat} className="border-t border-slate-100">
                 <td className="p-2 font-medium text-slate-900">{cat}</td>
-                {correlationData.matrices[metric][rowIdx].map((value, colIdx) => (
+                {activeMatrix[rowIdx]?.map((value, colIdx) => (
                   <td key={`${cat}-${colIdx}`} className="p-1 text-center">
                     <div
                       className="rounded-lg px-2 py-1 text-sm font-semibold text-slate-900"
@@ -103,7 +104,7 @@ const CategoryCorrelationModule = ({ records }) => {
           >
             {correlationData.categories.map((cat, rowIdx) => (
               <React.Fragment key={cat}>
-                {correlationData.matrices[metric][rowIdx].map((value, colIdx) => (
+                {activeMatrix[rowIdx]?.map((value, colIdx) => (
                   <div
                     key={`${cat}-${colIdx}`}
                     className="rounded-lg px-2 py-3"

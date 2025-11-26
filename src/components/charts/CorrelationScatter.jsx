@@ -20,7 +20,8 @@ const hexToRgb = (hex) => {
 };
 
 const CorrelationScatter = ({ records, xKey, yKey, color = '#22c7f2', maxPoints = 1500, height = 320 }) => {
-  const trimmed = maxPoints ? (records || []).slice(0, maxPoints) : records || [];
+  const safeRecords = Array.isArray(records) ? records : [];
+  const trimmed = maxPoints ? safeRecords.slice(0, maxPoints) : safeRecords;
   const bucketed = trimmed
     .map((record, index) => ({
       id: index,
