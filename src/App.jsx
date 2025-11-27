@@ -302,6 +302,9 @@ const App = () => {
   const formatNumber = (value, options = {}) =>
     Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
 
+  const formatCurrency = (value) =>
+    Number.isFinite(value) ? `$${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : '—';
+
   const formatMillionsUSD = (value) => {
     if (!Number.isFinite(value)) return '—';
     const millions = value / 1_000_000;
@@ -358,12 +361,12 @@ const App = () => {
                 format: formatPercent,
                 stats: statSummary.marginPct,
               }, {
-                label: 'Ingresos (USD millones)',
-                format: formatMillionsUSD,
+                label: 'Ingresos (USD)',
+                format: formatCurrency,
                 stats: statSummary.ingresos,
               }, {
-                label: 'Costos (USD millones)',
-                format: formatMillionsUSD,
+                label: 'Costos (USD)',
+                format: formatCurrency,
                 stats: statSummary.costos,
               }].map((item) => (
                 <div key={item.label} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm space-y-1">
@@ -969,13 +972,13 @@ const App = () => {
                   stats: statSummary.marginPct,
                 },
                 {
-                  label: 'Ingresos (USD millones)',
-                  format: formatMillionsUSD,
+                  label: 'Ingresos (USD)',
+                  format: formatCurrency,
                   stats: statSummary.ingresos,
                 },
                 {
-                  label: 'Costos (USD millones)',
-                  format: formatMillionsUSD,
+                  label: 'Costos (USD)',
+                  format: formatCurrency,
                   stats: statSummary.costos,
                 }].map((stat) => (
                   <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90 space-y-1">
