@@ -831,7 +831,72 @@ const App = () => {
               })}
             </div>
 
-              <div className="card border border-slate-200/80 shadow-md">
+            <div className="card border border-slate-200/80 shadow-md">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Tendencia central y dispersión</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('stats')}
+                    className="text-sm text-celeste-700 hover:text-celeste-800"
+                  >
+                    Ver popup
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[{
+                  label: 'Margen (%)',
+                  format: formatPercent,
+                  stats: statSummary.marginPct,
+                },
+                {
+                  label: 'Ingresos (USD)',
+                  format: formatCurrency,
+                  stats: statSummary.ingresos,
+                },
+                {
+                  label: 'Costos (USD)',
+                  format: formatCurrency,
+                  stats: statSummary.costos,
+                }].map((stat) => (
+                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900">{stat.label}</p>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Tendencia · Dispersión</span>
+                    </div>
+                    <p className="text-xl font-semibold text-slate-900">Media: {stat.format(stat.stats.mean)}</p>
+                    <p className="text-sm text-slate-700">Mediana: {stat.format(stat.stats.median)} · Moda: {stat.format(stat.stats.mode)}</p>
+                    <p className="text-xs text-slate-600">
+                      Error típico: {stat.format(stat.stats.stderr)} · Desv. estándar: {stat.format(stat.stats.stdSample)} · Varianza (muestral):
+                      {stat.format(stat.stats.varianceSample)}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Asimetría: {formatNumber(stat.stats.skewness, { maximumFractionDigits: 2 })} · Curtosis:
+                      {formatNumber(stat.stats.kurtosis, { maximumFractionDigits: 2 })}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Mínimo</p>
+                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.min)}</p>
+                      </div>
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Máximo</p>
+                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.max)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card border border-slate-200/80 shadow-md">
                 <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                   <div>
                     <p className="text-xs uppercase text-slate-500">Correlaciones</p>
@@ -943,71 +1008,6 @@ const App = () => {
                   </span>
                 </div>
                 <RegressionComparisonModule records={filteredRecords} />
-              </div>
-            </div>
-
-              <div className="card border border-slate-200/80 shadow-md">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Tendencia central y dispersión</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('stats')}
-                    className="text-sm text-celeste-700 hover:text-celeste-800"
-                  >
-                    Ver popup
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[{
-                  label: 'Margen (%)',
-                  format: formatPercent,
-                  stats: statSummary.marginPct,
-                },
-                {
-                  label: 'Ingresos (USD)',
-                  format: formatCurrency,
-                  stats: statSummary.ingresos,
-                },
-                {
-                  label: 'Costos (USD)',
-                  format: formatCurrency,
-                  stats: statSummary.costos,
-                }].map((stat) => (
-                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-slate-900">{stat.label}</p>
-                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Tendencia · Dispersión</span>
-                    </div>
-                    <p className="text-xl font-semibold text-slate-900">Media: {stat.format(stat.stats.mean)}</p>
-                    <p className="text-sm text-slate-700">Mediana: {stat.format(stat.stats.median)} · Moda: {stat.format(stat.stats.mode)}</p>
-                    <p className="text-xs text-slate-600">
-                      Error típico: {stat.format(stat.stats.stderr)} · Desv. estándar: {stat.format(stat.stats.stdSample)} · Varianza (muestral):
-                      {stat.format(stat.stats.varianceSample)}
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      Asimetría: {formatNumber(stat.stats.skewness, { maximumFractionDigits: 2 })} · Curtosis:
-                      {formatNumber(stat.stats.kurtosis, { maximumFractionDigits: 2 })}
-                    </p>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-[10px] uppercase text-slate-500">Mínimo</p>
-                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.min)}</p>
-                      </div>
-                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-[10px] uppercase text-slate-500">Máximo</p>
-                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.max)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
 

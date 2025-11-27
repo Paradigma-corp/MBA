@@ -13,6 +13,32 @@ const parseNumber = (value) => {
   return Number(cleaned);
 };
 
+const getMarginValue = (record) => {
+  const candidates = [
+    record.margen,
+    record['Margen'],
+    record['margen_total'],
+    record['margen total'],
+    record['Margen total'],
+    record['margenTotal'],
+    record['margin'],
+    record['margin_total'],
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = parseNumber(candidate);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  const ingresos = parseNumber(record.ingresos ?? record['Ingresos']);
+  const costos = parseNumber(record.costos ?? record['Costos']);
+  if (Number.isFinite(ingresos) && Number.isFinite(costos)) {
+    return ingresos - costos;
+  }
+
+  return 0;
+};
+
 export const correlationCoefficient = (valuesA, valuesB) => {
   const cleanedA = valuesA.map(ensureFinite);
   const cleanedB = valuesB.map(ensureFinite);
@@ -176,7 +202,7 @@ const buildCategoryMeans = (records) => {
           record['linea de negocio'] ||
           record['línea de negocio'],
       ) || record['Nombre segmentación'] || record.segmentacionIGD;
-    const margin = ensureFinite(parseNumber(record.margen));
+    const margin = ensureFinite(getMarginValue(record));
     if (!category || !categories.includes(category)) return;
     sums[category].sum += margin;
     sums[category].count += 1;
@@ -206,7 +232,7 @@ const computeRSquared = (records, betas) => {
             record['linea de negocio'] ||
             record['línea de negocio'],
         ) || record['Nombre segmentación'] || record.segmentacionIGD,
-      margin: ensureFinite(parseNumber(record.margen)),
+      margin: ensureFinite(getMarginValue(record)),
     }))
     .filter((row) => row.category);
 
