@@ -124,11 +124,13 @@ export const computeCategoryCorrelations = (records) => {
   const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
   const discovered = Array.from(foundCategories);
   const preferred = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
-  const extras = discovered.filter((cat) => !CORE_CATEGORIES.includes(cat)).sort();
-  const categories = preferred.length ? [...preferred, ...extras] : extras;
-  const primaryCategories = preferred.length
-    ? preferred
-    : categories.slice(0, Math.min(4, categories.length));
+
+  // Mantén la matriz enfocada en las cuatro líneas principales, incluso cuando la base cargada
+  // traiga segmentos adicionales. Solo se consideran otras categorías si ninguna de las core está
+  // presente, para que la vista no mute al cargar CSVs con muchos niveles.
+  const fallback = discovered.filter((cat) => CORE_CATEGORIES.includes(cat));
+  const categories = preferred.length ? preferred : fallback.length ? fallback : discovered;
+  const primaryCategories = categories.slice(0, Math.min(4, categories.length));
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
   const matrices = {};
 
@@ -150,8 +152,8 @@ export const computeOneVsManyCorrelations = (records) => {
   const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
   const discovered = Array.from(foundCategories);
   const preferred = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
-  const extras = discovered.filter((cat) => !CORE_CATEGORIES.includes(cat)).sort();
-  const categories = preferred.length ? [...preferred, ...extras] : extras;
+  const fallback = discovered.filter((cat) => CORE_CATEGORIES.includes(cat));
+  const categories = preferred.length ? preferred : fallback.length ? fallback : discovered;
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
 
   return categories.map((category) => {
