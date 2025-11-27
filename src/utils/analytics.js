@@ -1,5 +1,7 @@
 import { normalizeBusinessLine } from './dataParser.js';
 
+const CORE_CATEGORIES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+
 const ensureFinite = (value) => (Number.isFinite(value) ? value : 0);
 
 const parseNumber = (value) => {
@@ -39,6 +41,22 @@ const getMarginValue = (record) => {
   return 0;
 };
 
+const resolveCoreCategory = (record) => {
+  const normalized = normalizeBusinessLine(
+    record.lineaNegocio ||
+      record['Linea de negocio'] ||
+      record['Línea de negocio'] ||
+      record['lineaNegocio'] ||
+      record['Linea Negocio'] ||
+      record['Línea Negocio'] ||
+      record['linea de negocio'] ||
+      record['línea de negocio'],
+  );
+
+  if (normalized && CORE_CATEGORIES.includes(normalized)) return normalized;
+  return undefined;
+};
+
 export const correlationCoefficient = (valuesA, valuesB) => {
   const cleanedA = valuesA.map(ensureFinite);
   const cleanedB = valuesB.map(ensureFinite);
@@ -71,29 +89,7 @@ const sumRecordValues = (target, record) => {
   return target;
 };
 
-const pickBusinessLine = (record) => {
-  const candidates = [
-    record.lineaNegocio,
-    record['Linea de negocio'],
-    record['Línea de negocio'],
-    record['lineaNegocio'],
-    record['Linea Negocio'],
-    record['Línea Negocio'],
-    record['linea de negocio'],
-    record['línea de negocio'],
-    record['Nombre segmentación'],
-    record.segmentacionIGD,
-  ];
-
-  for (const candidate of candidates) {
-    const normalized = normalizeBusinessLine(candidate);
-    if (normalized && CORE_CATEGORIES.includes(normalized)) {
-      return normalized;
-    }
-  }
-
-  return undefined;
-};
+const pickBusinessLine = (record) => resolveCoreCategory(record);
 
 const buildCategorySeries = (records) => {
   return records.reduce(
@@ -129,8 +125,6 @@ const interpretCorrelationStrength = (value) => {
   if (abs < 0.7) return 'correlación moderada';
   return 'correlación fuerte (dependencia clara)';
 };
-
-const CORE_CATEGORIES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
 
 export const computeCategoryCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
@@ -194,30 +188,17 @@ export const computeOneVsManyCorrelations = (records) => {
   });
 };
 
-const buildCategoryMeans = (records) => {
-  const categories = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
-  const sums = Object.fromEntries(categories.map((cat) => [cat, { sum: 0, count: 0 }]));
+const buildCategoryMeans = (rows) => {
+  const sums = Object.fromEntries(CORE_CATEGORIES.map((cat) => [cat, { sum: 0, count: 0 }]));
 
-  records.forEach((record) => {
-    const category =
-      normalizeBusinessLine(
-        record.lineaNegocio ||
-          record['Linea de negocio'] ||
-          record['Línea de negocio'] ||
-          record['lineaNegocio'] ||
-          record['Linea Negocio'] ||
-          record['Línea Negocio'] ||
-          record['linea de negocio'] ||
-          record['línea de negocio'],
-      ) || record['Nombre segmentación'] || record.segmentacionIGD;
-    const margin = ensureFinite(getMarginValue(record));
-    if (!category || !categories.includes(category)) return;
+  rows.forEach(({ category, margin }) => {
+    if (!category || !CORE_CATEGORIES.includes(category)) return;
     sums[category].sum += margin;
     sums[category].count += 1;
   });
 
   return Object.fromEntries(
-    categories.map((cat) => [cat, sums[cat].count > 0 ? sums[cat].sum / sums[cat].count : 0]),
+    CORE_CATEGORIES.map((cat) => [cat, sums[cat].count > 0 ? sums[cat].sum / sums[cat].count : 0]),
   );
 };
 
@@ -226,24 +207,7 @@ const predictMargin = (category, betas) => {
   return ensureFinite(value);
 };
 
-const computeRSquared = (records, betas) => {
-  const rows = records
-    .map((record) => ({
-      category:
-        normalizeBusinessLine(
-          record.lineaNegocio ||
-            record['Linea de negocio'] ||
-            record['Línea de negocio'] ||
-            record['lineaNegocio'] ||
-            record['Linea Negocio'] ||
-            record['Línea Negocio'] ||
-            record['linea de negocio'] ||
-            record['línea de negocio'],
-        ) || record['Nombre segmentación'] || record.segmentacionIGD,
-      margin: ensureFinite(getMarginValue(record)),
-    }))
-    .filter((row) => row.category);
-
+const computeRSquared = (rows, betas) => {
   if (!rows.length) return 0;
 
   const meanMargin = rows.reduce((acc, row) => acc + row.margin, 0) / rows.length;
@@ -260,6 +224,16 @@ const computeRSquared = (records, betas) => {
   return 1 - ssResidual / ssTotal;
 };
 
+const mapRegressionRows = (records) => {
+  const safeRecords = Array.isArray(records) ? records : [];
+  return safeRecords
+    .map((record) => ({
+      category: resolveCoreCategory(record),
+      margin: ensureFinite(getMarginValue(record)),
+    }))
+    .filter((row) => row.category && Number.isFinite(row.margin));
+};
+
 const describeImpact = (beta, maxAbsBeta) => {
   const abs = Math.abs(beta);
   if (abs === 0) return 'Sin impacto';
@@ -269,11 +243,11 @@ const describeImpact = (beta, maxAbsBeta) => {
 };
 
 export const buildRegressionModel = (records) => {
-  const safeRecords = Array.isArray(records) ? records : [];
-  const betas = buildCategoryMeans(safeRecords);
-  const rSquared = computeRSquared(safeRecords, betas);
+  const rows = mapRegressionRows(records);
+  const betas = buildCategoryMeans(rows);
+  const rSquared = computeRSquared(rows, betas);
   const betasWithoutAuto = { ...betas, Automóviles: 0 };
-  const rSquaredWithoutAuto = computeRSquared(safeRecords, betasWithoutAuto);
+  const rSquaredWithoutAuto = computeRSquared(rows, betasWithoutAuto);
 
   const betaValues = Object.values(betas);
   const maxAbsBeta = betaValues.reduce((max, value) => Math.max(max, Math.abs(value)), 0) || 1;
@@ -316,10 +290,10 @@ export const buildRegressionModel = (records) => {
 };
 
 export const recomputeModelWithBetas = (records, betas) => {
-  const safeRecords = Array.isArray(records) ? records : [];
-  const rSquared = computeRSquared(safeRecords, betas);
+  const rows = mapRegressionRows(records);
+  const rSquared = computeRSquared(rows, betas);
   const betasWithoutAuto = { ...betas, Automóviles: 0 };
-  const rSquaredWithoutAuto = computeRSquared(safeRecords, betasWithoutAuto);
+  const rSquaredWithoutAuto = computeRSquared(rows, betasWithoutAuto);
   const averageOtherBeta = (betas.Vans + betas.Camiones + betas.Buses) / 3;
   const deltaR2 = rSquared - rSquaredWithoutAuto;
 
