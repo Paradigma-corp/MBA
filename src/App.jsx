@@ -39,6 +39,7 @@ import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
 import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
 import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
+import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
 
 const heroSlides = [
   {
@@ -84,6 +85,7 @@ const App = () => {
     years: [],
     businessLine: 'all',
   });
+  const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
   const workerRef = useRef(null);
@@ -499,7 +501,33 @@ const App = () => {
           <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 space-y-6">
             <Header />
 
-            <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setActivePage('dashboard')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'dashboard'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Panel principal
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePage('counting')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'counting'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Modelo de conteo con exposición
+              </button>
+            </div>
+
+            {activePage === 'dashboard' ? (
+              <div className="space-y-4">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
                 <div className="relative h-[320px] w-full">
                   <img src={heroSlides[activeSlide].image} alt={heroSlides[activeSlide].title} className="absolute inset-0 w-full h-full object-cover" />
@@ -998,13 +1026,16 @@ const App = () => {
             </div>
 
           </div>
-        </div>
+        ) : (
+          <CountingExposurePanel records={filteredRecords} />
+        )}
       </div>
-      <Modal open={!!modalConfig} title={modalConfig?.title} onClose={() => setActiveModal(null)}>
-        {modalConfig?.body}
-      </Modal>
     </div>
-  );
+    <Modal open={!!modalConfig} title={modalConfig?.title} onClose={() => setActiveModal(null)}>
+      {modalConfig?.body}
+    </Modal>
+  </div>
+);
 };
 
 export default App;
