@@ -16,6 +16,20 @@ const heatColor = (value) => {
   return `rgba(14, 116, 144, ${intensity / 100})`;
 };
 
+const metricLabels = {
+  margen: 'margen',
+  ingresos: 'ingresos',
+  costos: 'costos',
+  unidades: 'unidades',
+};
+
+const describeStrength = (value) => {
+  const abs = Math.abs(value);
+  if (abs < 0.3) return 'débil';
+  if (abs < 0.7) return 'moderada';
+  return 'fuerte';
+};
+
 const CategoryCorrelationModule = ({ records }) => {
   const [metric, setMetric] = useState('margen');
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
@@ -57,6 +71,55 @@ const CategoryCorrelationModule = ({ records }) => {
     : correlationData.primaryCategories.length
       ? correlationData.primaryCategories
       : correlationData.categories;
+
+  const pairStats = useMemo(() => {
+    const cats = correlationData.categories || [];
+    let strongest = null;
+    let weakest = null;
+
+    for (let i = 0; i < cats.length; i += 1) {
+      for (let j = i + 1; j < cats.length; j += 1) {
+        const value = activeMatrix[i]?.[j];
+        if (!Number.isFinite(value)) continue;
+        if (!strongest || Math.abs(value) > Math.abs(strongest.value)) {
+          strongest = { a: cats[i], b: cats[j], value };
+        }
+        if (!weakest || Math.abs(value) < Math.abs(weakest.value)) {
+          weakest = { a: cats[i], b: cats[j], value };
+        }
+      }
+    }
+
+    return { strongest, weakest };
+  }, [activeMatrix, correlationData.categories]);
+
+  const metricLabel = metricLabels[metric] || metric;
+
+  const insightText = useMemo(() => {
+    const parts = [];
+
+    if (pairStats.strongest) {
+      const { a, b, value } = pairStats.strongest;
+      const strength = describeStrength(value);
+      const direction = value >= 0 ? 'se mueven en la misma dirección' : 'tienden a moverse en sentidos opuestos';
+      parts.push(
+        `Para ${metricLabel}, el vínculo más ${strength === 'fuerte' ? 'marcado' : strength} es ${a} vs ${b} (ρ=${value.toFixed(
+          2,
+        )}), lo que sugiere que sus curvas ${direction}.`,
+      );
+    }
+
+    if (pairStats.weakest && (!pairStats.strongest || pairStats.weakest.value !== pairStats.strongest.value)) {
+      const { a, b, value } = pairStats.weakest;
+      const strength = describeStrength(value);
+      parts.push(
+        `El par más independiente es ${a} vs ${b} (ρ=${value.toFixed(2)}, relación ${strength}), útil para contrastar estrategias específicas.`,
+      );
+    }
+
+    if (!parts.length) return 'No hay suficientes pares para generar un comentario automático.';
+    return parts.join(' ');
+  }, [metricLabel, pairStats]);
 
   const correlationForPair = (rowCat, colCat) => {
     const rowIndex = correlationData.categories.indexOf(rowCat);
@@ -292,6 +355,11 @@ const CategoryCorrelationModule = ({ records }) => {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <p className="text-xs uppercase text-slate-500">Comentario automático</p>
+        <p className="text-sm text-slate-700 leading-relaxed">{insightText}</p>
       </div>
       </div>
 
