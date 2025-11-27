@@ -31,6 +31,7 @@ import { performBootstrap } from './utils/bootstrap.js';
 import {
   businessLineFromRecord,
   computeCorrelations,
+  normalizeFinancialRecord,
   transformToCategories,
   transformToSalespeople,
 } from './utils/dataParser.js';
@@ -178,9 +179,10 @@ const App = () => {
     const costos = [];
 
     filteredRecords.forEach((item) => {
-      const ingreso = Number(item.ingresos);
-      const costo = Number(item.costos);
-      const margen = Number(item.margen);
+      const normalized = normalizeFinancialRecord(item);
+      const ingreso = normalized.ingresos;
+      const costo = normalized.costos;
+      const margen = normalized.margen;
 
       if (Number.isFinite(ingreso)) ingresos.push(ingreso);
       if (Number.isFinite(costo)) costos.push(costo);
