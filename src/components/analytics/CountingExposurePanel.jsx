@@ -22,9 +22,11 @@ import {
   exportCsv,
   formatPercentage,
   priorityLabel,
+  scenarioRowsFromLineResults,
+  summarizeDiff,
 } from '../../utils/countingModel.js';
 
-const defaultExposure = { 2022: 1, 2023: 1, 2024: 1 };
+const defaultExposure = { 2022: 1, 2023: 1, 2024: 1, 2025: 1 };
 
 const ScenarioSlider = ({ label, value, onChange, min, max, step, suffix = '' }) => (
   <label className="flex flex-col gap-1 text-sm text-slate-700">
@@ -50,21 +52,71 @@ const Pill = ({ children }) => (
   </span>
 );
 
-  const formatProbDisplay = (prob) => {
-    if (prob >= 0.999) return '≥ 99.9%';
-    if (prob < 0.001) return '< 0.1%';
-    if (prob < 0.1) return `${(prob * 100).toFixed(2)}%`;
-    return `${(prob * 100).toFixed(1)}%`;
-  };
+const formatProbDisplay = (prob) => {
+  if (prob >= 0.999) return '≥ 99.9%';
+  if (prob < 0.001) return '< 0.1%';
+  if (prob < 0.1) return `${(prob * 100).toFixed(2)}%`;
+  return `${(prob * 100).toFixed(1)}%`;
+};
 
-  const formatMedianDisplay = (value) => {
-    const rounded = Number((value * 100).toFixed(1));
-    if (rounded === 0 && value >= 0) return '≈0%';
-    return `${rounded}%`;
-  };
+const formatMedianDisplay = (value) => {
+  const rounded = Number((value * 100).toFixed(1));
+  if (rounded === 0 && value >= 0) return '≈0%';
+  return `${rounded}%`;
+};
 
-  const quartileTooltip = (q1, q3) =>
-    `Mediana P y rango intercuartil [${(q1 * 100).toFixed(1)}% – ${(q3 * 100).toFixed(1)}%]`;
+const quartileTooltip = (q1, q3) =>
+  `Mediana P y rango intercuartil [${(q1 * 100).toFixed(1)}% – ${(q3 * 100).toFixed(1)}%]`;
+
+const safeExposure = (value) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 1;
+};
+
+const sanitizeExposure = (raw = {}) => ({
+  2022: safeExposure(raw[2022] ?? 1),
+  2023: safeExposure(raw[2023] ?? 1),
+  2024: safeExposure(raw[2024] ?? 1),
+  2025: safeExposure(raw[2025] ?? 1),
+});
+
+const scenarioName = (label, horizon, umbralA, umbralB, family) =>
+  `${label}: E=${horizon.toFixed(2)}, A=${umbralA.toFixed(2)}, B=${umbralB.toFixed(2)}, ${family}`;
+
+const prepareMetasForScenario = (metas, kByLinea = {}) =>
+  metas.map((meta) => ({ ...meta, k: kByLinea[meta.linea] ?? meta.k }));
+
+const scenarioConfigFromState = ({ metas, exposure, horizon, umbralA, umbralB, family, lambdaScale, kShift }, label) => ({
+  name: scenarioName(label, horizon, umbralA, umbralB, family),
+  kByLinea: Object.fromEntries(metas.map((meta) => [meta.linea, meta.k])),
+  exposicion: exposure,
+  familyMode: family,
+  thresholds: { A: umbralA, B: umbralB },
+  horizon,
+  lambdaScale,
+  kShift,
+});
+
+const buildScenarioResult = (config, metas, ventasAnuales) => {
+  const metasForScenario = prepareMetasForScenario(metas, config.kByLinea || {});
+  const result = buildPriorityModel({
+    ventasAnuales,
+    metas: metasForScenario,
+    exposicion: sanitizeExposure(config.exposicion || {}),
+    horizon: config.horizon ?? 1,
+    thresholds: { a: config.thresholds?.A ?? 0.6, b: config.thresholds?.B ?? 0.35 },
+    family: config.familyMode || 'auto',
+    lambdaScale: config.lambdaScale ?? 1,
+    kShift: config.kShift ?? 0,
+  });
+
+  return {
+    name: config.name || 'Escenario',
+    config,
+    lineResults: result.lineResults,
+    rows: scenarioRowsFromLineResults(result.lineResults),
+  };
+};
 
 const ChartBar = ({ label, value, color, maxValue = 1 }) => (
   <div className="space-y-1">
@@ -388,7 +440,21 @@ const CountingExposurePanel = ({ records = [] }) => {
   const [search, setSearch] = useState('');
   const [pinned, setPinned] = useState([]);
   const [scenarioA, setScenarioA] = useState(null);
+  const [scenarioB, setScenarioB] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
+  const scenarioDiff = useMemo(
+    () => (scenarioA && scenarioB ? summarizeDiff(scenarioA.rows, scenarioB.rows) : null),
+    [scenarioA, scenarioB],
+  );
+  const scenarioDiffRows = useMemo(
+    () => (scenarioDiff ? scenarioDiff.diffEntries.slice().sort((a, b) => b.dIndice - a.dIndice) : []),
+    [scenarioDiff],
+  );
+  const deltaClass = (value) => {
+    if (value > 0.05) return 'text-emerald-600';
+    if (value < -0.05) return 'text-rose-600';
+    return 'text-slate-700';
+  };
 
   useEffect(() => {
     setMetas(metasBase);
@@ -417,6 +483,11 @@ const CountingExposurePanel = ({ records = [] }) => {
 
   const currentLine = results.lineResults.find((line) => line.linea === selectedLine);
   const currentMeta = metas.find((meta) => meta.linea === selectedLine);
+  const vendorKey = (linea, vendedor) => `${linea}-${vendedor}`;
+  const scenarioAMap = useMemo(() => {
+    if (!scenarioA?.rows?.length) return null;
+    return new Map(scenarioA.rows.map((row) => [vendorKey(row.linea, row.vendedor), row]));
+  }, [scenarioA]);
   const filteredEntries = useMemo(() => {
     const base = currentLine?.entries || [];
     const filtered = base
@@ -425,15 +496,14 @@ const CountingExposurePanel = ({ records = [] }) => {
       )
       .map((entry) => {
         const key = vendorKey(entry.linea, entry.vendedor);
-        const baseline =
-          compareMode && scenarioA?.line === selectedLine ? scenarioA.entries?.[key] || null : null;
+        const baseline = compareMode && scenarioAMap ? scenarioAMap.get(key) || null : null;
         return {
           ...entry,
           pinned: pinned.includes(key),
           onPin: () => togglePin(entry.linea, entry.vendedor),
-          deltaProb: baseline ? entry.prob - baseline.prob : null,
-          deltaPriority: baseline ? entry.priority - baseline.priority : null,
-          baselineSegment: baseline?.segmento,
+          deltaProb: baseline ? entry.prob - baseline.P : null,
+          deltaPriority: baseline ? entry.priority - baseline.indice : null,
+          baselineSegment: baseline?.segmento || baseline?.segA,
         };
       });
     return filtered.sort((a, b) => {
@@ -451,8 +521,6 @@ const CountingExposurePanel = ({ records = [] }) => {
     setMetas((prev) => prev.map((meta) => (meta.linea === linea ? { ...meta, [key]: value } : meta)));
   };
 
-  const vendorKey = (linea, vendedor) => `${linea}-${vendedor}`;
-
   const resetScenarios = () => {
     setLambdaScale(1);
     setKShift(0);
@@ -468,26 +536,58 @@ const CountingExposurePanel = ({ records = [] }) => {
     setPinned((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
   };
 
-  const saveScenarioA = () => {
-    if (!currentLine?.entries?.length) return;
-    const snapshot = Object.fromEntries(
-      currentLine.entries.map((entry) => [vendorKey(entry.linea, entry.vendedor), entry]),
+  const captureScenarioSlot = (slot) => {
+    const config = scenarioConfigFromState(
+      { metas, exposure: sanitizeExposure(exposure), horizon, umbralA, umbralB, family, lambdaScale, kShift },
+      slot,
     );
-    setScenarioA({ line: selectedLine, entries: snapshot, params: { horizon, umbralA, umbralB, family } });
-    setCompareMode(false);
+    const scenario = buildScenarioResult(config, metas, ventasAnuales);
+    if (slot === 'A') {
+      setScenarioA(scenario);
+      setCompareMode(false);
+    } else {
+      setScenarioB(scenario);
+    }
+  };
+
+  const loadScenarioConfig = (config) => {
+    const normalized = {
+      name: config.name || 'Escenario cargado',
+      kByLinea: config.kByLinea || config.k || {},
+      exposicion: config.exposicion || config.exposure || {},
+      familyMode: config.familyMode || config.family || 'auto',
+      thresholds: {
+        A: config.thresholds?.A ?? config.umbralA ?? 0.6,
+        B: config.thresholds?.B ?? config.umbralB ?? 0.35,
+      },
+      horizon: config.horizon ?? config.E ?? 1,
+      lambdaScale: config.lambdaScale ?? 1,
+      kShift: config.kShift ?? 0,
+    };
+    const scenario = buildScenarioResult(normalized, metas, ventasAnuales);
+    setScenarioB(scenario);
+  };
+
+  const handleLoadScenario = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        loadScenarioConfig(parsed);
+      } catch (err) {
+        console.error('No se pudo cargar el escenario', err);
+      }
+    };
+    reader.readAsText(file);
   };
 
   const saveScenario = () => {
-    const payload = {
-      metas,
-      exposure,
-      umbralA,
-      umbralB,
-      family,
-      horizon,
-      lambdaScale,
-      kShift,
-    };
+    const payload = scenarioConfigFromState(
+      { metas, exposure: sanitizeExposure(exposure), horizon, umbralA, umbralB, family, lambdaScale, kShift },
+      'Escenario',
+    );
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -732,30 +832,41 @@ const CountingExposurePanel = ({ records = [] }) => {
             >
               <Download size={16} /> PNG Fig. 3.1–3.3
             </button>
-              <button
-                type="button"
-                onClick={saveScenario}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
-              >
-                <Save size={16} /> Guardar escenario
-              </button>
-              <button
-                type="button"
-                onClick={saveScenarioA}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
-              >
-                <Save size={16} /> Guardar escenario A (comparar)
-              </button>
-              <button
-                type="button"
-                disabled={!scenarioA}
-                onClick={() => setCompareMode((prev) => !prev)}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 disabled:opacity-50"
-                title="Resalta cambios de P, segmento e índice frente al escenario A guardado"
-              >
-                <RefreshCw size={16} /> {compareMode ? 'Salir de comparación' : 'Comparar A vs B'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={saveScenario}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
+            >
+              <Save size={16} /> Guardar escenario
+            </button>
+            <button
+              type="button"
+              onClick={() => captureScenarioSlot('A')}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
+            >
+              <Save size={16} /> Guardar escenario A (comparar)
+            </button>
+            <button
+              type="button"
+              onClick={() => captureScenarioSlot('B')}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
+            >
+              <Save size={16} /> Guardar escenario B (comparar)
+            </button>
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 cursor-pointer">
+              <Download size={16} /> Cargar escenario en B
+              <input type="file" accept="application/json" className="hidden" onChange={handleLoadScenario} />
+            </label>
+            <button
+              type="button"
+              disabled={!scenarioA}
+              onClick={() => setCompareMode((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 disabled:opacity-50"
+              title="Resalta cambios de P, segmento e índice frente al escenario A guardado"
+            >
+              <RefreshCw size={16} /> {compareMode ? 'Salir de comparación' : 'Comparar con A en la tabla'}
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -975,6 +1086,212 @@ const CountingExposurePanel = ({ records = [] }) => {
           </div>
         </div>
       </div>
+
+      {scenarioDiff && (
+        <div className="card border border-slate-200 shadow-md space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">Comparador de escenarios A vs B</p>
+              <h4 className="text-lg font-semibold text-slate-900">Movimientos de probabilidad, segmento e índice</h4>
+              <p className="text-sm text-slate-600">
+                Usa dos configuraciones (k, E, umbrales, familia) y resalta ΔP, ΔÍndice y cambios de segmento por vendedor.
+              </p>
+            </div>
+            <div className="text-xs text-right text-slate-600">
+              <div className="font-semibold text-slate-800">Escenario A: {scenarioA?.name || '—'}</div>
+              <div className="font-semibold text-slate-800">Escenario B: {scenarioB?.name || '—'}</div>
+              <div className="text-slate-500">Coincidencias: {scenarioDiffRows.length}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
+            <div className="space-y-3">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-[0.08em]">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Línea</th>
+                      <th className="px-3 py-2 text-right">%A → %B (A)</th>
+                      <th className="px-3 py-2 text-right">%A → %B (B)</th>
+                      <th className="px-3 py-2 text-right">ΔP prom.</th>
+                      <th className="px-3 py-2 text-right">ΔÍndice prom.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {scenarioDiff.lineTotals.map((line) => (
+                      <tr key={`line-${line.linea}`} className="hover:bg-slate-50">
+                        <td className="px-3 py-2 font-semibold text-slate-900">{line.linea}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-700">
+                          A {formatPercentage(line.segmentsA.A)} · B {formatPercentage(line.segmentsA.B)} · C {formatPercentage(line.segmentsA.C)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-700">
+                          A {formatPercentage(line.segmentsB.A)} · B {formatPercentage(line.segmentsB.B)} · C {formatPercentage(line.segmentsB.C)}
+                        </td>
+                        <td className={`px-3 py-2 text-right font-mono tabular-nums ${deltaClass(line.avgDeltaP)}`}>
+                          {(line.avgDeltaP * 100).toFixed(1)} pp
+                        </td>
+                        <td className={`px-3 py-2 text-right font-mono tabular-nums ${deltaClass(line.avgDeltaIndice)}`}>
+                          {line.avgDeltaIndice.toFixed(3)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-semibold text-slate-900">Movimientos de segmento (Sankey ligero)</h5>
+                    <Pill>Conteo</Pill>
+                  </div>
+                  <div className="space-y-2 text-sm text-slate-700">
+                    {Object.keys(scenarioDiff.transitionsByLine).length ? (
+                      Object.entries(scenarioDiff.transitionsByLine).map(([linea, moves]) => (
+                        <div key={`move-${linea}`} className="space-y-1">
+                          <p className="font-semibold">{linea}</p>
+                          {Object.entries(moves).map(([move, count]) => (
+                            <div key={`${linea}-${move}`} className="flex items-center gap-2">
+                              <span className="w-20 text-xs text-slate-600">{move}</span>
+                              <div className="h-2 rounded-full bg-slate-100 flex-1 overflow-hidden">
+                                <div
+                                  className="h-full bg-violet-400"
+                                  style={{ width: `${Math.min(100, count * 12)}%` }}
+                                  title={`${count} movimientos ${move}`}
+                                />
+                              </div>
+                              <span className="text-xs font-mono tabular-nums">{count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-600">Sin movimientos detectados.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-semibold text-slate-900">Histograma ΔP</h5>
+                    <Pill>ΔP en puntos porcentuales</Pill>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-700">
+                    {(() => {
+                      const maxCount = Math.max(...scenarioDiff.histogramBuckets.map((b) => b.count), 1);
+                      return scenarioDiff.histogramBuckets.map((bucket, idx) => (
+                        <div key={`hist-${idx}`} className="flex items-center gap-2">
+                          <span className="w-20 font-mono tabular-nums text-slate-600">
+                            {(bucket.min * 100).toFixed(0)} to {(bucket.max * 100).toFixed(0)}
+                          </span>
+                          <div className="h-2 rounded-full bg-slate-100 flex-1 overflow-hidden">
+                            <div
+                              className="h-full bg-slate-500"
+                              style={{ width: `${(bucket.count / maxCount) * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-8 text-right font-mono tabular-nums">{bucket.count}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="text-sm font-semibold text-slate-900">Top alzas de Índice</h5>
+                  <Pill>Top 10 ↑</Pill>
+                </div>
+                <div className="space-y-1 text-sm text-slate-700">
+                  {scenarioDiff.topIncreases.map((item) => (
+                    <div key={`inc-${item.linea}-${item.vendedor}`} className="flex items-center justify-between">
+                      <span className="font-semibold">{item.vendedor} ({item.linea})</span>
+                      <span className="font-mono tabular-nums text-emerald-600">
+                        +{item.dIndice.toFixed(3)} · ΔP {(item.dP * 100).toFixed(1)} pp
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="text-sm font-semibold text-slate-900">Top caídas de Índice</h5>
+                  <Pill>Top 10 ↓</Pill>
+                </div>
+                <div className="space-y-1 text-sm text-slate-700">
+                  {scenarioDiff.topDrops.map((item) => (
+                    <div key={`drop-${item.linea}-${item.vendedor}`} className="flex items-center justify-between">
+                      <span className="font-semibold">{item.vendedor} ({item.linea})</span>
+                      <span className="font-mono tabular-nums text-rose-600">
+                        {item.dIndice.toFixed(3)} · ΔP {(item.dP * 100).toFixed(1)} pp
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-[0.08em]">
+                <tr>
+                  <th className="px-3 py-3 text-left">Vendedor</th>
+                  <th className="px-3 py-3 text-left">Línea</th>
+                  <th className="px-3 py-3 text-left">Segmento A</th>
+                  <th className="px-3 py-3 text-left">Segmento B</th>
+                  <th className="px-3 py-3 text-right">ΔP</th>
+                  <th className="px-3 py-3 text-right">ΔÍndice</th>
+                  <th className="px-3 py-3 text-right">Familia A/B</th>
+                  <th className="px-3 py-3 text-right">Precisión B</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {scenarioDiffRows.length ? (
+                  scenarioDiffRows.map((row) => (
+                    <tr key={`${row.linea}-${row.vendedor}`} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 font-semibold text-slate-900">{row.vendedor}</td>
+                      <td className="px-3 py-2 text-slate-700">{row.linea}</td>
+                      <td className="px-3 py-2 text-slate-700">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${priorityLabel(row.segA).color}`}>
+                          {priorityLabel(row.segA).label}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${priorityLabel(row.segB).color}`}>
+                          {priorityLabel(row.segB).label}
+                        </span>
+                      </td>
+                      <td className={`px-3 py-2 text-right font-mono tabular-nums ${deltaClass(row.dP)}`}>
+                        {(row.dP * 100).toFixed(1)} pp
+                      </td>
+                      <td className={`px-3 py-2 text-right font-mono tabular-nums ${deltaClass(row.dIndice)}`}>
+                        {row.dIndice >= 0 ? '+' : ''}{row.dIndice.toFixed(3)}
+                      </td>
+                      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">
+                        {row.famA} → {row.famB}
+                      </td>
+                      <td className="px-3 py-2 text-right text-slate-700">
+                        <PrecisionBadge level={row.precisionB} />
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td className="px-3 py-3" colSpan={8}>
+                      <p className="text-sm text-slate-600">Guarda los escenarios A y B para ver la comparación.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

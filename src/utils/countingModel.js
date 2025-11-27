@@ -54,7 +54,7 @@ export const negbinPAtLeastK = (k, r, p) => (k <= 0 ? 1 : 1 - negbinCdf(k - 1, r
 
 const extractYear = (value) => {
   const numeric = Number(value);
-  if ([2022, 2023, 2024].includes(numeric)) return numeric;
+  if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
   return undefined;
 };
 
@@ -177,7 +177,7 @@ const familyDecision = (mu, sigma2, familyOverride) => {
 export function buildPriorityModel({
   ventasAnuales = [],
   metas = [],
-  exposicion = { 2022: 1, 2023: 1, 2024: 1 },
+  exposicion = { 2022: 1, 2023: 1, 2024: 1, 2025: 1 },
   horizon = 1,
   thresholds = { a: 0.6, b: 0.35 },
   family = 'auto',
@@ -358,6 +358,138 @@ export function buildPriorityModel({
   });
 
   return { lineResults, tableSummary, stackedSegments };
+}
+
+export const scenarioRowsFromLineResults = (lineResults = []) =>
+  lineResults.flatMap((line) =>
+    (line.entries || []).map((entry) => ({
+      linea: entry.linea,
+      vendedor: entry.vendedor,
+      lambdaHat: entry.lambda,
+      sumE: entry.exposureUsada,
+      P: entry.prob,
+      segmento: entry.segmento,
+      indice: entry.priority,
+      familia: entry.familia === 'poisson' ? 'Poisson' : entry.familia === 'negbin' ? 'NegBin' : 'Poisson',
+      precision: entry.precisionLevel,
+    })),
+  );
+
+export const diffRows = (a, b) => {
+  const dP = b.P - a.P;
+  const dIndice = b.indice - a.indice;
+  const segChange = `${a.segmento}→${b.segmento}`;
+  return { dP, dIndice, segChange };
+};
+
+const median = (values) => {
+  const sorted = values.filter(Number.isFinite).sort((x, y) => x - y);
+  if (!sorted.length) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+};
+
+export function summarizeDiff(rowsA = [], rowsB = []) {
+  const mapB = new Map(rowsB.map((row) => [`${row.linea}|${row.vendedor}`, row]));
+  const diffEntries = rowsA
+    .map((rowA) => {
+      const key = `${rowA.linea}|${rowA.vendedor}`;
+      const rowB = mapB.get(key);
+      if (!rowB) return null;
+      const { dP, dIndice, segChange } = diffRows(rowA, rowB);
+      return {
+        linea: rowA.linea,
+        vendedor: rowA.vendedor,
+        probA: rowA.P,
+        probB: rowB.P,
+        dP,
+        indiceA: rowA.indice,
+        indiceB: rowB.indice,
+        dIndice,
+        segA: rowA.segmento,
+        segB: rowB.segmento,
+        segChange,
+        famA: rowA.familia,
+        famB: rowB.familia,
+        precisionB: rowB.precision,
+      };
+    })
+    .filter(Boolean);
+
+  const transitions = {};
+  const transitionsByLine = {};
+  const deltaPByLine = {};
+  const deltaIndexByLine = {};
+  const topIncreases = diffEntries.slice().sort((a, b) => b.dIndice - a.dIndice).slice(0, 10);
+  const topDrops = diffEntries.slice().sort((a, b) => a.dIndice - b.dIndice).slice(0, 10);
+
+  diffEntries.forEach((entry) => {
+    const key = entry.segChange;
+    transitions[key] = (transitions[key] || 0) + 1;
+
+    if (!transitionsByLine[entry.linea]) transitionsByLine[entry.linea] = {};
+    transitionsByLine[entry.linea][key] = (transitionsByLine[entry.linea][key] || 0) + 1;
+
+    if (!deltaPByLine[entry.linea]) deltaPByLine[entry.linea] = [];
+    if (!deltaIndexByLine[entry.linea]) deltaIndexByLine[entry.linea] = [];
+    deltaPByLine[entry.linea].push(entry.dP);
+    deltaIndexByLine[entry.linea].push(entry.dIndice);
+  });
+
+  const segmentShare = (rows) => {
+    const byLine = {};
+    rows.forEach((row) => {
+      if (!byLine[row.linea]) byLine[row.linea] = { total: 0, A: 0, B: 0, C: 0 };
+      byLine[row.linea].total += 1;
+      byLine[row.linea][row.segmento] += 1;
+    });
+    return Object.fromEntries(
+      Object.entries(byLine).map(([linea, counts]) => {
+        const total = Math.max(1, counts.total);
+        return [linea, { A: counts.A / total, B: counts.B / total, C: counts.C / total }];
+      }),
+    );
+  };
+
+  const segmentsA = segmentShare(rowsA);
+  const segmentsB = segmentShare(rowsB);
+
+  const lineTotals = Object.entries(deltaPByLine).map(([linea, deltas]) => {
+    const idxDeltas = deltaIndexByLine[linea] || [];
+    return {
+      linea,
+      avgDeltaP: deltas.reduce((acc, v) => acc + v, 0) / Math.max(1, deltas.length),
+      medianDeltaP: median(deltas),
+      avgDeltaIndice: idxDeltas.reduce((acc, v) => acc + v, 0) / Math.max(1, idxDeltas.length),
+      medianDeltaIndice: median(idxDeltas),
+      segmentsA: segmentsA[linea] || { A: 0, B: 0, C: 0 },
+      segmentsB: segmentsB[linea] || { A: 0, B: 0, C: 0 },
+    };
+  });
+
+  const histogramBuckets = Array.from({ length: 20 }, (_, idx) => ({
+    min: -0.5 + idx * 0.05,
+    max: -0.45 + idx * 0.05,
+    count: 0,
+  }));
+
+  diffEntries.forEach((entry) => {
+    const bucketIndex = Math.min(
+      histogramBuckets.length - 1,
+      Math.max(0, Math.floor((entry.dP + 0.5) / 0.05)),
+    );
+    histogramBuckets[bucketIndex].count += 1;
+  });
+
+  return {
+    diffEntries,
+    transitions,
+    transitionsByLine,
+    lineTotals,
+    histogramBuckets,
+    topIncreases,
+    topDrops,
+  };
 }
 
 export const exportCsv = (entries = []) => {
