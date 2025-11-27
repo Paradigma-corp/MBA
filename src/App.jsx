@@ -34,6 +34,7 @@ import {
   normalizeFinancialRecord,
   transformToCategories,
   transformToSalespeople,
+  yearFromRecord,
 } from './utils/dataParser.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
@@ -108,7 +109,8 @@ const App = () => {
 
   const filteredRecords = useMemo(() => {
     return rawRecords.filter((record) => {
-      const matchYear = filters.years.length === 0 || filters.years.includes(record.Año);
+      const year = yearFromRecord(record);
+      const matchYear = filters.years.length === 0 || (year !== undefined && filters.years.includes(year));
       const line = businessLineOf(record);
       const matchBusiness = filters.businessLine === 'all' || (line && line === filters.businessLine);
       return matchYear && matchBusiness;
@@ -277,7 +279,13 @@ const App = () => {
   }, [filteredRecords]);
 
   const filterOptions = useMemo(() => {
-    const years = Array.from(new Set(rawRecords.map((item) => item.Año).filter(Boolean))).sort((a, b) => a - b);
+    const years = Array.from(
+      new Set(
+        rawRecords
+          .map((item) => yearFromRecord(item))
+          .filter((year) => year !== undefined && year !== null && !Number.isNaN(year)),
+      ),
+    ).sort((a, b) => a - b);
     const businessLines = Array.from(
       new Set(
         rawRecords

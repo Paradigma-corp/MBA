@@ -108,6 +108,23 @@ const BUSINESS_LINE_KEYS = [
   'segmentacion igd',
 ];
 
+const YEAR_KEYS = ['año', 'ano', 'anio', 'year', 'periodo', 'período'];
+
+export const yearFromRecord = (record = {}) => {
+  if (Number.isFinite(record.Año)) return record.Año;
+  if (Number.isFinite(record.año)) return record.año;
+
+  const entries = Object.entries(record);
+  for (const lowerKey of YEAR_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const parsed = parseNumber(found[1]);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return undefined;
+};
+
 export const businessLineFromRecord = (record = {}) => {
   const entries = Object.entries(record);
   for (const lowerKey of BUSINESS_LINE_KEYS) {
