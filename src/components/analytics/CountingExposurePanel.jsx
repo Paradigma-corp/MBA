@@ -50,11 +50,21 @@ const Pill = ({ children }) => (
   </span>
 );
 
-const formatProbDisplay = (prob) => {
-  if (prob >= 0.999) return '≥ 99.9%';
-  if (prob < 0.1) return `${(prob * 100).toFixed(2)}%`;
-  return `${(prob * 100).toFixed(1)}%`;
-};
+  const formatProbDisplay = (prob) => {
+    if (prob >= 0.999) return '≥ 99.9%';
+    if (prob < 0.001) return '< 0.1%';
+    if (prob < 0.1) return `${(prob * 100).toFixed(2)}%`;
+    return `${(prob * 100).toFixed(1)}%`;
+  };
+
+  const formatMedianDisplay = (value) => {
+    const rounded = Number((value * 100).toFixed(1));
+    if (rounded === 0 && value > 0) return '≈0%';
+    return `${rounded}%`;
+  };
+
+  const quartileTooltip = (q1, q3) =>
+    `Mediana P y rango intercuartil [${(q1 * 100).toFixed(1)}% – ${(q3 * 100).toFixed(1)}%]`;
 
 const ChartBar = ({ label, value, color, maxValue = 1 }) => (
   <div className="space-y-1">
@@ -71,19 +81,22 @@ const ChartBar = ({ label, value, color, maxValue = 1 }) => (
   </div>
 );
 
-const PrecisionBadge = ({ level }) => {
-  const colors = {
-    Alta: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    Media: 'bg-amber-50 text-amber-700 border-amber-200',
-    Baja: 'bg-rose-50 text-rose-700 border-rose-200',
+  const PrecisionBadge = ({ level }) => {
+    const colors = {
+      Alta: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      Media: 'bg-amber-50 text-amber-700 border-amber-200',
+      Baja: 'bg-rose-50 text-rose-700 border-rose-200',
+    };
+    const label = level || 'Baja';
+    return (
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-semibold ${colors[label] || colors.Baja}`}
+        title="Regla: Alta si ΣE ≥ 3 y λ̂ ≥ 5; Media si ΣE ∈ [2,3) o λ̂ ∈ [2,5); Baja en caso contrario"
+      >
+        Precisión {label}
+      </span>
+    );
   };
-  const label = level || 'Baja';
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-semibold ${colors[label] || colors.Baja}`}>
-      Precisión {label}
-    </span>
-  );
-};
 
 const ProbabilityCell = ({ entry }) => {
   const warning = entry.overconfident && entry.exposureUsada < 3;
@@ -92,6 +105,8 @@ const ProbabilityCell = ({ entry }) => {
     : '';
   const tooltip = entry.overconfident
     ? 'Alta certeza por λ≫k'
+    : entry.prob < 0.001
+    ? 'Baja probabilidad por k alto respecto a λ̂ y horizonte E'
     : entry.familia === 'negbin'
     ? 'NB con banda de error por momentos'
     : 'Poisson con exposición';
@@ -103,6 +118,11 @@ const ProbabilityCell = ({ entry }) => {
           {formatProbDisplay(entry.prob)}
         </span>
         {errorText && <span className="text-slate-500 text-xs">{errorText}</span>}
+        {Number.isFinite(entry.deltaProb) && (
+          <div className="text-[11px] text-slate-500" title="Comparación vs escenario A">
+            ΔP {entry.deltaProb >= 0 ? '+' : ''}{(entry.deltaProb * 100).toFixed(1)} pp
+          </div>
+        )}
       </div>
       <PrecisionBadge level={entry.precisionLevel} />
     </div>
@@ -139,30 +159,57 @@ const PriorityRow = ({ entry }) => {
   const badge = priorityLabel(entry.segmento);
   return (
     <tr className="hover:bg-slate-50 text-sm">
-      <td className="px-3 py-2 font-semibold text-slate-900">{entry.vendedor}</td>
-      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.modeloLabel}</td>
-      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.lambda.toFixed(2)}</td>
-      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.exposureUsada.toFixed(2)}</td>
-      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.kTarget}</td>
-      <td className="px-3 py-2 text-right text-slate-700"><ProbabilityCell entry={entry} /></td>
-      <td className="px-3 py-2">
-        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${badge.color}`}>
-          {badge.label}
+      <td className="px-3 py-2 font-semibold text-slate-900 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={entry.onPin}
+          className={`text-slate-400 hover:text-slate-900 ${entry.pinned ? 'text-slate-900' : ''}`}
+          title={entry.pinned ? 'Desanclar' : 'Fijar (📌 Pinned)'}
+        >
+          📌
+        </button>
+        {entry.vendedor}
+      </td>
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">
+        <span
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px]"
+          title="Auto decide con σ² vs μ (usa NB si Var(X) > Media(X)); también puedes forzar Poisson o NB"
+        >
+          {entry.modeloLabel}
         </span>
       </td>
-      <td className="px-3 py-2 text-right text-slate-900 font-semibold font-mono tabular-nums">{entry.priority.toFixed(3)}</td>
-    </tr>
-  );
-};
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.lambda.toFixed(2)}</td>
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.exposureUsada.toFixed(2)}</td>
+        <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.kTarget}</td>
+        <td className="px-3 py-2 text-right text-slate-700"><ProbabilityCell entry={entry} /></td>
+        <td className="px-3 py-2">
+          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${badge.color}`}>
+            {badge.label}
+          </span>
+          {entry.baselineSegment && entry.baselineSegment !== entry.segmento && (
+            <div className="text-[11px] text-slate-500">{entry.baselineSegment} → {entry.segmento}</div>
+          )}
+        </td>
+        <td className="px-3 py-2 text-right text-slate-900 font-semibold font-mono tabular-nums">
+          {entry.priority.toFixed(3)}
+          {Number.isFinite(entry.deltaPriority) && (
+            <div className="text-[11px] text-slate-500" title="Comparación vs escenario A">
+              Δ {entry.deltaPriority >= 0 ? '+' : ''}{entry.deltaPriority.toFixed(3)}
+            </div>
+          )}
+        </td>
+      </tr>
+    );
+  };
 
-const SegmentStack = ({ item }) => (
+const SegmentStack = ({ item, formatMedianDisplay, quartileTooltip }) => (
   <div className="space-y-2 p-3 rounded-xl border border-slate-200 bg-white shadow-sm">
     <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
       <span>{item.linea}</span>
-      <span className="text-xs text-slate-500 flex items-center gap-1">
+      <span className="text-xs text-slate-500 flex items-center gap-1" title={quartileTooltip(item.q1, item.q3)}>
         Mediana P
         <span className="h-3 w-[1px] bg-celeste-500 inline-block" title="Mediana P" />
-        {formatPercentage(item.median)}
+        {formatMedianDisplay(item.median)}
       </span>
     </div>
     <div className="h-4 rounded-full bg-slate-100 overflow-hidden flex relative">
@@ -206,7 +253,7 @@ const copyTable = (tableSummary) => {
 };
 
 const exportImages = (lineEntries, stackedSegments) => {
-  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: base 2022–2025H1. Elaboración propia.';
+  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: 2022–2025 H1. Elaboración propia.';
   const createCanvasDownload = (title, bars) => {
     if (!bars.length) return;
     const width = 640;
@@ -245,6 +292,11 @@ const exportImages = (lineEntries, stackedSegments) => {
     link.href = url;
     link.download = `${title.replace(/\s+/g, '_').toLowerCase()}.png`;
     link.click();
+  };
+
+  const formatMedianForExport = (value) => {
+    const rounded = Number((value * 100).toFixed(1));
+    return rounded === 0 && value > 0 ? '≈0%' : `${rounded}%`;
   };
 
   createCanvasDownload(
@@ -296,7 +348,7 @@ const exportImages = (lineEntries, stackedSegments) => {
       ctx.fillStyle = '#0f172a';
       ctx.font = '12px Inter, sans-serif';
       ctx.fillText(item.linea, 24, y + 17);
-      ctx.fillText(`Mediana P: ${formatPercentage(item.median)}`, width - 220, y + 17);
+      ctx.fillText(`Mediana P: ${formatMedianForExport(item.median)}`, width - 220, y + 17);
     });
 
     ctx.fillStyle = '#64748b';
@@ -334,6 +386,9 @@ const CountingExposurePanel = ({ records = [] }) => {
   const [exposure, setExposure] = useState(defaultExposure);
   const [segmentFilters, setSegmentFilters] = useState({ A: true, B: true, C: true });
   const [search, setSearch] = useState('');
+  const [pinned, setPinned] = useState([]);
+  const [scenarioA, setScenarioA] = useState(null);
+  const [compareMode, setCompareMode] = useState(false);
 
   useEffect(() => {
     setMetas(metasBase);
@@ -364,10 +419,28 @@ const CountingExposurePanel = ({ records = [] }) => {
   const currentMeta = metas.find((meta) => meta.linea === selectedLine);
   const filteredEntries = useMemo(() => {
     const base = currentLine?.entries || [];
-    return base.filter((entry) =>
-      segmentFilters[entry.segmento] && entry.vendedor.toLowerCase().includes(search.toLowerCase()),
-    );
-  }, [currentLine, search, segmentFilters]);
+    const filtered = base
+      .filter(
+        (entry) => segmentFilters[entry.segmento] && entry.vendedor.toLowerCase().includes(search.toLowerCase()),
+      )
+      .map((entry) => {
+        const key = vendorKey(entry.linea, entry.vendedor);
+        const baseline =
+          compareMode && scenarioA?.line === selectedLine ? scenarioA.entries?.[key] || null : null;
+        return {
+          ...entry,
+          pinned: pinned.includes(key),
+          onPin: () => togglePin(entry.linea, entry.vendedor),
+          deltaProb: baseline ? entry.prob - baseline.prob : null,
+          deltaPriority: baseline ? entry.priority - baseline.priority : null,
+          baselineSegment: baseline?.segmento,
+        };
+      });
+    return filtered.sort((a, b) => {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      return b.priority - a.priority;
+    });
+  }, [currentLine, search, segmentFilters, pinned, compareMode, scenarioA, selectedLine]);
   const tableTotals = useMemo(() => {
     const ventas = results.tableSummary.reduce((acc, row) => acc + row.pctVentas, 0);
     const margen = results.tableSummary.reduce((acc, row) => acc + row.pctMargen, 0);
@@ -378,6 +451,8 @@ const CountingExposurePanel = ({ records = [] }) => {
     setMetas((prev) => prev.map((meta) => (meta.linea === linea ? { ...meta, [key]: value } : meta)));
   };
 
+  const vendorKey = (linea, vendedor) => `${linea}-${vendedor}`;
+
   const resetScenarios = () => {
     setLambdaScale(1);
     setKShift(0);
@@ -386,6 +461,20 @@ const CountingExposurePanel = ({ records = [] }) => {
 
   const toggleSegment = (seg) => {
     setSegmentFilters((prev) => ({ ...prev, [seg]: !prev[seg] }));
+  };
+
+  const togglePin = (linea, vendedor) => {
+    const key = vendorKey(linea, vendedor);
+    setPinned((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
+  };
+
+  const saveScenarioA = () => {
+    if (!currentLine?.entries?.length) return;
+    const snapshot = Object.fromEntries(
+      currentLine.entries.map((entry) => [vendorKey(entry.linea, entry.vendedor), entry]),
+    );
+    setScenarioA({ line: selectedLine, entries: snapshot, params: { horizon, umbralA, umbralB, family } });
+    setCompareMode(false);
   };
 
   const saveScenario = () => {
@@ -643,20 +732,36 @@ const CountingExposurePanel = ({ records = [] }) => {
             >
               <Download size={16} /> PNG Fig. 3.1–3.3
             </button>
-            <button
-              type="button"
-              onClick={saveScenario}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
-            >
-              <Save size={16} /> Guardar escenario
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={saveScenario}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
+              >
+                <Save size={16} /> Guardar escenario
+              </button>
+              <button
+                type="button"
+                onClick={saveScenarioA}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
+              >
+                <Save size={16} /> Guardar escenario A (comparar)
+              </button>
+              <button
+                type="button"
+                disabled={!scenarioA}
+                onClick={() => setCompareMode((prev) => !prev)}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 disabled:opacity-50"
+                title="Resalta cambios de P, segmento e índice frente al escenario A guardado"
+              >
+                <RefreshCw size={16} /> {compareMode ? 'Salir de comparación' : 'Comparar A vs actual'}
+              </button>
+            </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-slate-600">Filtro rápido:</span>
-            {['A', 'B', 'C'].map((seg) => (
+            <div className="flex flex-wrap gap-2 items-center">
+              <span className="text-xs text-slate-600">Filtro rápido:</span>
+              {['A', 'B', 'C'].map((seg) => (
               <button
                 key={seg}
                 type="button"
@@ -669,26 +774,29 @@ const CountingExposurePanel = ({ records = [] }) => {
               >
                 {seg}
               </button>
-            ))}
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-600">Mostrando {filteredEntries.length}/{currentLine?.entries?.length || 0}</span>
+              <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700">
+                <Search size={16} className="text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar vendedor"
+                  className="focus:outline-none"
+                />
+              </label>
+            </div>
           </div>
-          <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700">
-            <Search size={16} className="text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar vendedor"
-              className="focus:outline-none"
-            />
-          </label>
-        </div>
 
         <div className="overflow-x-auto rounded-2xl border border-slate-200">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-[0.08em]">
               <tr>
                 <th className="px-3 py-3 text-left">Vendedor</th>
-                <th className="px-3 py-3 text-right">Modelo</th>
+                <th className="px-3 py-3 text-right">Familia</th>
                 <th className="px-3 py-3 text-right">
                   <span className="inline-flex items-center gap-1">
                     Tasa λ̂ (ventas/año)
@@ -709,7 +817,7 @@ const CountingExposurePanel = ({ records = [] }) => {
                 </th>
                 <th className="px-3 py-3 text-right">
                   <span className="inline-flex items-center gap-1">
-                    P(X ≥ k)
+                    Prob. de cumplir la meta
                     <Info
                       size={12}
                       className="text-slate-400"
@@ -775,7 +883,12 @@ const CountingExposurePanel = ({ records = [] }) => {
                     <td className="px-3 py-2 font-semibold text-slate-900">{row.linea}</td>
                     <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{row.nVendedores}</td>
                     <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.pctVendedores)}</td>
-                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.median)}</td>
+                    <td
+                      className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums"
+                      title={quartileTooltip(row.q1, row.q3)}
+                    >
+                      {formatMedianDisplay(row.median)}
+                    </td>
                     <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{row.iqr.toFixed(3)}</td>
                     <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.pctVentas)}</td>
                     <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.pctMargen)}</td>
@@ -785,8 +898,7 @@ const CountingExposurePanel = ({ records = [] }) => {
             </table>
           </div>
           <p className="text-xs text-slate-500 mt-2">
-            Totales: ventas {formatPercentage(tableTotals.ventas)}{Math.abs(tableTotals.ventas - 1) < 0.01 ? ' (≈100%)' : ''}, margen
-            {` ${formatPercentage(tableTotals.margen)}`}{Math.abs(tableTotals.margen - 1) < 0.01 ? ' (≈100%)' : ''}.
+            Totales: ventas ≈100%, margen ≈100% (redondeo).
           </p>
         </div>
 
@@ -817,7 +929,12 @@ const CountingExposurePanel = ({ records = [] }) => {
             </div>
             <div className="space-y-2">
               {results.stackedSegments.map((item) => (
-                <SegmentStack key={item.linea} item={item} />
+                <SegmentStack
+                  key={item.linea}
+                  item={item}
+                  formatMedianDisplay={formatMedianDisplay}
+                  quartileTooltip={quartileTooltip}
+                />
               ))}
             </div>
           </div>

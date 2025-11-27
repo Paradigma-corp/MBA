@@ -141,14 +141,14 @@ const clamp01 = (value) => Math.min(1, Math.max(0, value));
 
 const summarizeProbability = (values) => {
   const sorted = [...values].sort((a, b) => a - b);
-  if (!sorted.length) return { median: 0, iqr: 0 };
+  if (!sorted.length) return { median: 0, iqr: 0, q1: 0, q3: 0 };
   const mid = Math.floor(sorted.length / 2);
   const median =
     sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
   const q1 = sorted[Math.floor(sorted.length * 0.25)];
   const q3 = sorted[Math.floor(sorted.length * 0.75)];
   const iqr = ensureFinite(q3 - q1);
-  return { median, iqr };
+  return { median, iqr, q1, q3 };
 };
 
 export function computeLineMetrics(metas = []) {
@@ -264,6 +264,13 @@ export function buildPriorityModel({
 
       const margenTotal = rows.reduce((acc, row) => acc + ensureFinite(row.margen_total), 0);
 
+      const precisionLevel =
+        totalExposure >= 3 && lambdaHat >= 5
+          ? 'Alta'
+          : totalExposure >= 2 || lambdaHat >= 2
+          ? 'Media'
+          : 'Baja';
+
       return {
         linea,
         vendedor: vendor,
@@ -279,7 +286,7 @@ export function buildPriorityModel({
         margenRel: metricLine.margenRel,
         variab: metricLine.variab,
         errorMargin,
-        precisionLevel: totalExposure >= 3 ? 'Alta' : totalExposure >= 1.5 ? 'Media' : 'Baja',
+        precisionLevel,
         nPeriods,
         modeloLabel:
           family === 'auto'
@@ -292,7 +299,7 @@ export function buildPriorityModel({
     });
 
     const probs = entries.map((entry) => entry.prob);
-    const { median, iqr } = summarizeProbability(probs);
+    const { median, iqr, q1, q3 } = summarizeProbability(probs);
     const totalVentas = entries.reduce((acc, entry) => acc + entry.totalVentas, 0);
     const totalMargen = entries.reduce((acc, entry) => acc + entry.margenTotal, 0);
     const totalVendedores = entries.length;
@@ -310,6 +317,8 @@ export function buildPriorityModel({
       summary: {
         median,
         iqr,
+        q1,
+        q3,
         totalVentas,
         totalMargen,
         totalVendedores,
@@ -327,6 +336,8 @@ export function buildPriorityModel({
     nVendedores: line.summary.totalVendedores,
     pctVendedores: line.summary.totalVendedores / globalVendedores,
     median: line.summary.median,
+    q1: line.summary.q1,
+    q3: line.summary.q3,
     iqr: line.summary.iqr,
     pctVentas: line.summary.totalVentas / globalVentas,
     pctMargen: line.summary.totalMargen / globalMargen,
@@ -341,6 +352,8 @@ export function buildPriorityModel({
       B: (line.summary.segmentCounts.B || 0) / total,
       C: (line.summary.segmentCounts.C || 0) / total,
       median: line.summary.median,
+      q1: line.summary.q1,
+      q3: line.summary.q3,
     };
   });
 
