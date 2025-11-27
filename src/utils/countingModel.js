@@ -4,6 +4,17 @@ export const CORE_LINES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
 
 const ensureFinite = (value) => (Number.isFinite(value) ? value : 0);
 
+const parseNumber = (value) => {
+  if (value === undefined || value === null) return NaN;
+  if (typeof value === 'number') return value;
+  const cleaned = value
+    .toString()
+    .replace(/[^0-9,.-]/g, '')
+    .replace(/,(?=\d{3}(\D|$))/g, '')
+    .replace(/,/g, '.');
+  return Number(cleaned);
+};
+
 export const canonicalLine = (raw) => {
   const normalized = normalizeBusinessLine(raw) || '';
   if (!normalized) return '';
@@ -53,6 +64,12 @@ export function negbinCdf(m, r, p) {
 export const negbinPAtLeastK = (k, r, p) => (k <= 0 ? 1 : 1 - negbinCdf(k - 1, r, p));
 
 const extractYear = (value) => {
+  if (value === undefined || value === null) return undefined;
+  const match = value.toString().match(/20\d{2}/);
+  if (match) {
+    const numeric = Number(match[0]);
+    if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
+  }
   const numeric = Number(value);
   if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
   return undefined;
@@ -63,7 +80,7 @@ const extractVendor = (record) =>
 
 const extractUnits = (record) =>
   ensureFinite(
-    Number(
+    parseNumber(
       record.ventas ??
         record['ventas'] ??
         record['Unidades UN'] ??
@@ -73,7 +90,8 @@ const extractUnits = (record) =>
     ),
   );
 
-const extractMargin = (record) => ensureFinite(Number(record.margen_total ?? record.margen ?? record.margenTotal));
+const extractMargin = (record) =>
+  ensureFinite(parseNumber(record.margen_total ?? record.margen ?? record.margenTotal ?? record.margen_real));
 
 export function aggregateVentaAnual(records = []) {
   const map = new Map();

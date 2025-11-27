@@ -2,6 +2,17 @@ import { normalizeBusinessLine } from './dataParser.js';
 
 const ensureFinite = (value) => (Number.isFinite(value) ? value : 0);
 
+const parseNumber = (value) => {
+  if (value === undefined || value === null) return NaN;
+  if (typeof value === 'number') return value;
+  const cleaned = value
+    .toString()
+    .replace(/[^0-9,.-]/g, '')
+    .replace(/,(?=\d{3}(\D|$))/g, '')
+    .replace(/,/g, '.');
+  return Number(cleaned);
+};
+
 export const correlationCoefficient = (valuesA, valuesB) => {
   const cleanedA = valuesA.map(ensureFinite);
   const cleanedB = valuesB.map(ensureFinite);
@@ -26,10 +37,10 @@ export const correlationCoefficient = (valuesA, valuesB) => {
 };
 
 const sumRecordValues = (target, record) => {
-  target.ingresos += ensureFinite(Number(record.ingresos));
-  target.costos += ensureFinite(Number(record.costos));
-  target.margen += ensureFinite(Number(record.margen));
-  target.unidades += ensureFinite(Number(record['Unidades UN']));
+  target.ingresos += ensureFinite(parseNumber(record.ingresos));
+  target.costos += ensureFinite(parseNumber(record.costos));
+  target.margen += ensureFinite(parseNumber(record.margen));
+  target.unidades += ensureFinite(parseNumber(record['Unidades UN']));
   target.count += 1;
   return target;
 };
@@ -165,7 +176,7 @@ const buildCategoryMeans = (records) => {
           record['linea de negocio'] ||
           record['línea de negocio'],
       ) || record['Nombre segmentación'] || record.segmentacionIGD;
-    const margin = ensureFinite(Number(record.margen));
+    const margin = ensureFinite(parseNumber(record.margen));
     if (!category || !categories.includes(category)) return;
     sums[category].sum += margin;
     sums[category].count += 1;
@@ -195,7 +206,7 @@ const computeRSquared = (records, betas) => {
             record['linea de negocio'] ||
             record['línea de negocio'],
         ) || record['Nombre segmentación'] || record.segmentacionIGD,
-      margin: ensureFinite(Number(record.margen)),
+      margin: ensureFinite(parseNumber(record.margen)),
     }))
     .filter((row) => row.category);
 
