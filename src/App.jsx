@@ -29,8 +29,8 @@ import WaterfallCalculator from './components/calculators/WaterfallCalculator.js
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
 import {
+  businessLineFromRecord,
   computeCorrelations,
-  normalizeBusinessLine,
   transformToCategories,
   transformToSalespeople,
 } from './utils/dataParser.js';
@@ -103,17 +103,7 @@ const App = () => {
     return () => worker.terminate();
   }, []);
 
-  const businessLineOf = (record) =>
-    normalizeBusinessLine(
-      record.lineaNegocio ||
-        record['Linea de negocio'] ||
-        record['Línea de negocio'] ||
-        record['lineaNegocio'] ||
-        record['Linea Negocio'] ||
-        record['Línea Negocio'] ||
-        record['linea de negocio'] ||
-        record['línea de negocio'],
-    );
+  const businessLineOf = (record) => businessLineFromRecord(record);
 
   const filteredRecords = useMemo(() => {
     return rawRecords.filter((record) => {

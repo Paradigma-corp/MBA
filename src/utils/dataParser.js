@@ -15,22 +15,44 @@ export const normalizeBusinessLine = (value) => {
 };
 
 const CORE_LINES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+const BUSINESS_LINE_KEYS = [
+  'lineaNegocio',
+  'Linea de negocio',
+  'Línea de negocio',
+  'lineaNegocio',
+  'Linea Negocio',
+  'Línea Negocio',
+  'linea de negocio',
+  'línea de negocio',
+  'linea',
+  'Linea',
+  'Línea',
+  'linea_negocio',
+  'Linea_negocio',
+  'Nombre linea',
+  'Nombre línea',
+  'Nombre de línea',
+  'Nombre negocio',
+  'Nombre line of business',
+  'Nombre segmentación',
+];
+
+export const businessLineFromRecord = (record = {}) => {
+  for (const key of BUSINESS_LINE_KEYS) {
+    const candidate = record[key];
+    const normalized = normalizeBusinessLine(candidate);
+    if (normalized && CORE_LINES.includes(normalized)) {
+      return normalized;
+    }
+  }
+  return undefined;
+};
 
 const mapRecord = (record) => ({
   ...record,
   segmentacionIGD: record['Nombre segmentación'],
   vendedorSAP: record['Vendedor SAP'],
-  businessLine:
-    normalizeBusinessLine(
-      record.lineaNegocio ||
-        record['Linea de negocio'] ||
-        record['Línea de negocio'] ||
-        record['lineaNegocio'] ||
-        record['Linea Negocio'] ||
-        record['Línea Negocio'] ||
-        record['linea de negocio'] ||
-        record['línea de negocio'],
-    ) || undefined,
+  businessLine: businessLineFromRecord(record),
 });
 
 const mean = (values) => values.reduce((acc, val) => acc + val, 0) / (values.length || 1);
