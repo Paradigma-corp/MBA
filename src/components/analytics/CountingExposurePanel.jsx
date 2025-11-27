@@ -7,6 +7,9 @@ import {
   ClipboardCopy,
   Download,
   Info,
+  Save,
+  Search,
+  AlertTriangle,
   Layers,
   RefreshCw,
   SlidersHorizontal,
@@ -47,6 +50,12 @@ const Pill = ({ children }) => (
   </span>
 );
 
+const formatProbDisplay = (prob) => {
+  if (prob >= 0.999) return '≥ 99.9%';
+  if (prob < 0.1) return `${(prob * 100).toFixed(2)}%`;
+  return `${(prob * 100).toFixed(1)}%`;
+};
+
 const ChartBar = ({ label, value, color, maxValue = 1 }) => (
   <div className="space-y-1">
     <div className="flex items-center justify-between text-xs text-slate-600">
@@ -62,21 +71,86 @@ const ChartBar = ({ label, value, color, maxValue = 1 }) => (
   </div>
 );
 
+const PrecisionBadge = ({ level }) => {
+  const colors = {
+    Alta: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    Media: 'bg-amber-50 text-amber-700 border-amber-200',
+    Baja: 'bg-rose-50 text-rose-700 border-rose-200',
+  };
+  const label = level || 'Baja';
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-semibold ${colors[label] || colors.Baja}`}>
+      Precisión {label}
+    </span>
+  );
+};
+
+const ProbabilityCell = ({ entry }) => {
+  const warning = entry.overconfident && entry.exposureUsada < 3;
+  const errorText = entry.familia === 'negbin' && entry.errorMargin
+    ? ` ± ${(entry.errorMargin * 100).toFixed(entry.prob < 0.1 ? 2 : 1)}%`
+    : '';
+  const tooltip = entry.overconfident
+    ? 'Alta certeza por λ≫k'
+    : entry.familia === 'negbin'
+    ? 'NB con banda de error por momentos'
+    : 'Poisson con exposición';
+  return (
+    <div className="flex items-center justify-end gap-2">
+      {warning && <AlertTriangle size={14} className="text-amber-500" title="Historial corto (&lt;3 años efectivos)" />}
+      <div className="text-right">
+        <span className="font-semibold text-slate-900" title={tooltip}>
+          {formatProbDisplay(entry.prob)}
+        </span>
+        {errorText && <span className="text-slate-500 text-xs">{errorText}</span>}
+      </div>
+      <PrecisionBadge level={entry.precisionLevel} />
+    </div>
+  );
+};
+
+const PriorityBar = ({ entry, maxValue }) => {
+  const badge = priorityLabel(entry.segmento);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs text-slate-600">
+        <span className="font-semibold text-slate-800 flex items-center gap-2">
+          {entry.vendedor}
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] ${badge.color}`}
+            title={`Segmento ${entry.segmento}`}
+          >
+            {badge.label}
+          </span>
+        </span>
+        <span title="0.60·P + 0.25·MargenRel + 0.15·(1−Variab)">{entry.priority.toFixed(3)}</span>
+      </div>
+      <div className="h-3 rounded-full bg-slate-100 overflow-hidden" title="0.60P + 0.25MargenRel + 0.15(1−Variab)">
+        <div
+          className="h-full bg-violet-500"
+          style={{ width: `${Math.min(100, (entry.priority / maxValue) * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
 const PriorityRow = ({ entry }) => {
   const badge = priorityLabel(entry.segmento);
   return (
     <tr className="hover:bg-slate-50 text-sm">
       <td className="px-3 py-2 font-semibold text-slate-900">{entry.vendedor}</td>
-      <td className="px-3 py-2 text-right text-slate-700">{entry.lambda.toFixed(2)}</td>
-      <td className="px-3 py-2 text-right text-slate-700">{entry.exposureUsada.toFixed(2)}</td>
-      <td className="px-3 py-2 text-right text-slate-700">{entry.kTarget}</td>
-      <td className="px-3 py-2 text-right text-slate-700">{formatPercentage(entry.prob)}</td>
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.modeloLabel}</td>
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.lambda.toFixed(2)}</td>
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.exposureUsada.toFixed(2)}</td>
+      <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{entry.kTarget}</td>
+      <td className="px-3 py-2 text-right text-slate-700"><ProbabilityCell entry={entry} /></td>
       <td className="px-3 py-2">
         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${badge.color}`}>
           {badge.label}
         </span>
       </td>
-      <td className="px-3 py-2 text-right text-slate-900 font-semibold">{entry.priority.toFixed(3)}</td>
+      <td className="px-3 py-2 text-right text-slate-900 font-semibold font-mono tabular-nums">{entry.priority.toFixed(3)}</td>
     </tr>
   );
 };
@@ -85,17 +159,26 @@ const SegmentStack = ({ item }) => (
   <div className="space-y-2 p-3 rounded-xl border border-slate-200 bg-white shadow-sm">
     <div className="flex items-center justify-between text-sm font-semibold text-slate-900">
       <span>{item.linea}</span>
-      <span className="text-xs text-slate-500">Mediana P: {formatPercentage(item.median)}</span>
+      <span className="text-xs text-slate-500 flex items-center gap-1">
+        Mediana P
+        <span className="h-3 w-[1px] bg-celeste-500 inline-block" title="Mediana P" />
+        {formatPercentage(item.median)}
+      </span>
     </div>
-    <div className="h-4 rounded-full bg-slate-100 overflow-hidden flex">
-      <div className="bg-emerald-500/80" style={{ width: `${item.A * 100}%` }} />
-      <div className="bg-amber-400/80" style={{ width: `${item.B * 100}%` }} />
-      <div className="bg-rose-400/80" style={{ width: `${item.C * 100}%` }} />
+    <div className="h-4 rounded-full bg-slate-100 overflow-hidden flex relative">
+      <div className="bg-emerald-500/80" style={{ width: `${item.A * 100}%` }} title="Segmento A" />
+      <div className="bg-amber-400/80" style={{ width: `${item.B * 100}%` }} title="Segmento B" />
+      <div className="bg-rose-400/80" style={{ width: `${item.C * 100}%` }} title="Segmento C" />
+      <div
+        className="absolute top-0 bottom-0 w-[2px] bg-celeste-500"
+        style={{ left: `${item.median * 100}%` }}
+        title="Mediana de P"
+      />
     </div>
     <div className="flex justify-between text-[11px] text-slate-600">
-      <span>A: {formatPercentage(item.A)}</span>
-      <span>B: {formatPercentage(item.B)}</span>
-      <span>C: {formatPercentage(item.C)}</span>
+      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />A: {formatPercentage(item.A)}</span>
+      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" />B: {formatPercentage(item.B)}</span>
+      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-400" />C: {formatPercentage(item.C)}</span>
     </div>
   </div>
 );
@@ -123,6 +206,7 @@ const copyTable = (tableSummary) => {
 };
 
 const exportImages = (lineEntries, stackedSegments) => {
+  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: base 2022–2025H1. Elaboración propia.';
   const createCanvasDownload = (title, bars) => {
     if (!bars.length) return;
     const width = 640;
@@ -136,6 +220,8 @@ const exportImages = (lineEntries, stackedSegments) => {
     ctx.fillStyle = '#0f172a';
     ctx.font = '16px Inter, sans-serif';
     ctx.fillText(title, 24, 32);
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillText('0.60·P + 0.25·MargenRel + 0.15·(1−Variab)', 24, 50);
 
     const maxValue = Math.max(...bars.map((bar) => bar.value), 0.0001);
     bars.forEach((bar, idx) => {
@@ -149,6 +235,10 @@ const exportImages = (lineEntries, stackedSegments) => {
       ctx.fillText(bar.label, 28, y + 13);
       ctx.fillText(`${(bar.value * 100).toFixed(1)}%`, width - 120, y + 13);
     });
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.fillText(apaFooter, 24, height - 16);
 
     const url = canvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -174,6 +264,8 @@ const exportImages = (lineEntries, stackedSegments) => {
     ctx.fillStyle = '#0f172a';
     ctx.font = '16px Inter, sans-serif';
     ctx.fillText('Figura 3.2 - Segmentos A/B/C por línea', 24, 32);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillText('Mediana de P indicada con línea vertical', 24, 52);
 
     stackedSegments.forEach((item, idx) => {
       const y = 70 + idx * 50;
@@ -194,11 +286,22 @@ const exportImages = (lineEntries, stackedSegments) => {
         offset += w;
       });
 
+      const medianX = 80 + barWidth * item.median;
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.beginPath();
+      ctx.moveTo(medianX, y);
+      ctx.lineTo(medianX, y + 26);
+      ctx.stroke();
+
       ctx.fillStyle = '#0f172a';
       ctx.font = '12px Inter, sans-serif';
       ctx.fillText(item.linea, 24, y + 17);
       ctx.fillText(`Mediana P: ${formatPercentage(item.median)}`, width - 220, y + 17);
     });
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px Inter, sans-serif';
+    ctx.fillText(apaFooter, 24, height - 16);
 
     const url = canvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -229,6 +332,8 @@ const CountingExposurePanel = ({ records = [] }) => {
   const [lambdaScale, setLambdaScale] = useState(1);
   const [kShift, setKShift] = useState(0);
   const [exposure, setExposure] = useState(defaultExposure);
+  const [segmentFilters, setSegmentFilters] = useState({ A: true, B: true, C: true });
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     setMetas(metasBase);
@@ -257,6 +362,17 @@ const CountingExposurePanel = ({ records = [] }) => {
 
   const currentLine = results.lineResults.find((line) => line.linea === selectedLine);
   const currentMeta = metas.find((meta) => meta.linea === selectedLine);
+  const filteredEntries = useMemo(() => {
+    const base = currentLine?.entries || [];
+    return base.filter((entry) =>
+      segmentFilters[entry.segmento] && entry.vendedor.toLowerCase().includes(search.toLowerCase()),
+    );
+  }, [currentLine, search, segmentFilters]);
+  const tableTotals = useMemo(() => {
+    const ventas = results.tableSummary.reduce((acc, row) => acc + row.pctVentas, 0);
+    const margen = results.tableSummary.reduce((acc, row) => acc + row.pctMargen, 0);
+    return { ventas, margen };
+  }, [results.tableSummary]);
 
   const updateMeta = (linea, key, value) => {
     setMetas((prev) => prev.map((meta) => (meta.linea === linea ? { ...meta, [key]: value } : meta)));
@@ -266,6 +382,30 @@ const CountingExposurePanel = ({ records = [] }) => {
     setLambdaScale(1);
     setKShift(0);
     setHorizon(1);
+  };
+
+  const toggleSegment = (seg) => {
+    setSegmentFilters((prev) => ({ ...prev, [seg]: !prev[seg] }));
+  };
+
+  const saveScenario = () => {
+    const payload = {
+      metas,
+      exposure,
+      umbralA,
+      umbralB,
+      family,
+      horizon,
+      lambdaScale,
+      kShift,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'escenario_conteo_exposicion.json';
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -285,6 +425,10 @@ const CountingExposurePanel = ({ records = [] }) => {
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-800">
               <Layers size={16} /> Sin reasignación entre líneas
             </div>
+            <p className="text-xs text-slate-600 max-w-xs text-right">
+              Estimación de P(X ≥ k) por vendedor con Poisson (o NB si hay sobredispersión) y exposición anual. Segmentos A/B/C y
+              PriorityIndex integran probabilidad, margen relativo y riesgo por línea.
+            </p>
             <Pill>E = {horizon.toFixed(2)} años</Pill>
           </div>
         </div>
@@ -471,11 +615,11 @@ const CountingExposurePanel = ({ records = [] }) => {
         </div>
       </div>
 
-      <div className="card border border-slate-200 shadow-md">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <div>
-            <p className="text-[11px] uppercase text-slate-500">Resultados por línea</p>
-            <h3 className="text-lg font-semibold text-slate-900">Prioridad operativa — {selectedLine}</h3>
+        <div className="card border border-slate-200 shadow-md">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div>
+              <p className="text-[11px] uppercase text-slate-500">Resultados por línea</p>
+              <h3 className="text-lg font-semibold text-slate-900">Prioridad operativa — {selectedLine}</h3>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -499,7 +643,44 @@ const CountingExposurePanel = ({ records = [] }) => {
             >
               <Download size={16} /> PNG Fig. 3.1–3.3
             </button>
+            <button
+              type="button"
+              onClick={saveScenario}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
+            >
+              <Save size={16} /> Guardar escenario
+            </button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs text-slate-600">Filtro rápido:</span>
+            {['A', 'B', 'C'].map((seg) => (
+              <button
+                key={seg}
+                type="button"
+                onClick={() => toggleSegment(seg)}
+                className={`px-3 py-1 rounded-full border text-xs font-semibold transition ${
+                  segmentFilters[seg]
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-white text-slate-700 border-slate-200'
+                }`}
+              >
+                {seg}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm text-slate-700">
+            <Search size={16} className="text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar vendedor"
+              className="focus:outline-none"
+            />
+          </label>
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -507,20 +688,56 @@ const CountingExposurePanel = ({ records = [] }) => {
             <thead className="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-[0.08em]">
               <tr>
                 <th className="px-3 py-3 text-left">Vendedor</th>
-                <th className="px-3 py-3 text-right">λ̂</th>
-                <th className="px-3 py-3 text-right">ΣE</th>
-                <th className="px-3 py-3 text-right">k meta</th>
-                <th className="px-3 py-3 text-right">P(X ≥ k)</th>
+                <th className="px-3 py-3 text-right">Modelo</th>
+                <th className="px-3 py-3 text-right">
+                  <span className="inline-flex items-center gap-1">
+                    Tasa λ̂ (ventas/año)
+                    <Info size={12} className="text-slate-400" title="λ̂ = Σ ventas / Σ exposición" />
+                  </span>
+                </th>
+                <th className="px-3 py-3 text-right">
+                  <span className="inline-flex items-center gap-1">
+                    Exposición ΣE
+                    <Info size={12} className="text-slate-400" title="Años efectivos considerados" />
+                  </span>
+                </th>
+                <th className="px-3 py-3 text-right">
+                  <span className="inline-flex items-center gap-1">
+                    k meta (unid/año)
+                    <Info size={12} className="text-slate-400" title="Meta anual definida para la línea" />
+                  </span>
+                </th>
+                <th className="px-3 py-3 text-right">
+                  <span className="inline-flex items-center gap-1">
+                    P(X ≥ k)
+                    <Info
+                      size={12}
+                      className="text-slate-400"
+                      title="Poisson o NB con exposición; si NB muestra banda de error"
+                    />
+                  </span>
+                </th>
                 <th className="px-3 py-3 text-left">Segmento</th>
-                <th className="px-3 py-3 text-right">Índice</th>
+                <th className="px-3 py-3 text-right">
+                  <span className="inline-flex items-center gap-1">
+                    Índice
+                    <Info
+                      size={12}
+                      className="text-slate-400"
+                      title="0.60·P + 0.25·MargenRel + 0.15·(1−Variab)"
+                    />
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
-              {currentLine?.entries.map((entry) => (
-                <PriorityRow key={`${entry.vendedor}-${entry.linea}`} entry={entry} />
-              )) || (
+              {filteredEntries.length ? (
+                filteredEntries.map((entry) => (
+                  <PriorityRow key={`${entry.vendedor}-${entry.linea}`} entry={entry} />
+                ))
+              ) : (
                 <tr>
-                  <td className="px-3 py-3" colSpan={7}>
+                  <td className="px-3 py-3" colSpan={8}>
                     <p className="text-sm text-slate-600">No hay datos cargados para esta línea.</p>
                   </td>
                 </tr>
@@ -556,17 +773,21 @@ const CountingExposurePanel = ({ records = [] }) => {
                 {results.tableSummary.map((row) => (
                   <tr key={row.linea} className="hover:bg-slate-50">
                     <td className="px-3 py-2 font-semibold text-slate-900">{row.linea}</td>
-                    <td className="px-3 py-2 text-right text-slate-700">{row.nVendedores}</td>
-                    <td className="px-3 py-2 text-right text-slate-700">{formatPercentage(row.pctVendedores)}</td>
-                    <td className="px-3 py-2 text-right text-slate-700">{formatPercentage(row.median)}</td>
-                    <td className="px-3 py-2 text-right text-slate-700">{row.iqr.toFixed(3)}</td>
-                    <td className="px-3 py-2 text-right text-slate-700">{formatPercentage(row.pctVentas)}</td>
-                    <td className="px-3 py-2 text-right text-slate-700">{formatPercentage(row.pctMargen)}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{row.nVendedores}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.pctVendedores)}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.median)}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{row.iqr.toFixed(3)}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.pctVentas)}</td>
+                    <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">{formatPercentage(row.pctMargen)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Totales: ventas {formatPercentage(tableTotals.ventas)}{Math.abs(tableTotals.ventas - 1) < 0.01 ? ' (≈100%)' : ''}, margen
+            {` ${formatPercentage(tableTotals.margen)}`}{Math.abs(tableTotals.margen - 1) < 0.01 ? ' (≈100%)' : ''}.
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -615,7 +836,11 @@ const CountingExposurePanel = ({ records = [] }) => {
                 .sort((a, b) => b.priority - a.priority)
                 .slice(0, 6)
                 .map((entry) => (
-                  <ChartBar key={`${entry.vendedor}-prio`} label={entry.vendedor} value={entry.priority} color="h-3 bg-violet-500" maxValue={Math.max(...(currentLine?.entries || []).map((e) => e.priority), 1)} />
+                  <PriorityBar
+                    key={`${entry.vendedor}-prio`}
+                    entry={entry}
+                    maxValue={Math.max(...(currentLine?.entries || []).map((e) => e.priority), 1)}
+                  />
                 ))}
               <p className="text-xs text-slate-500">Ordenado de mayor a menor prioridad.</p>
             </div>

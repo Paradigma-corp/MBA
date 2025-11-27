@@ -201,6 +201,7 @@ export function buildPriorityModel({
       const counts = rows.map((row) => row.ventas);
       const exposures = rows.map((row) => exposicion[row.anio] ?? 1);
       const totalExposure = exposures.reduce((acc, value) => acc + value, 0);
+      const nPeriods = exposures.filter((value) => value > 0).length || counts.length || 1;
       if (totalExposure <= 0) {
         return {
           linea,
@@ -212,6 +213,15 @@ export function buildPriorityModel({
           priority: 0,
           totalVentas: 0,
           margenTotal: 0,
+          exposureUsada: totalExposure,
+          kTarget: metasByLine[linea]?.k ?? 0,
+          margenRel: lineMetrics[linea]?.margenRel ?? 0,
+          variab: lineMetrics[linea]?.variab ?? 0,
+          errorMargin: 0,
+          precisionLevel: 'Baja',
+          nPeriods,
+          modeloLabel: 'Sin exposición',
+          overconfident: false,
         };
       }
 
@@ -226,6 +236,7 @@ export function buildPriorityModel({
       const adjustedVariance = variance * lambdaScale * horizon;
 
       let prob = 0;
+      let errorMargin = 0;
       const meta = metasByLine[linea];
       const kTarget = Math.max(0, Math.round((meta?.k ?? 0) + kShift));
       const effectiveLambda = adjustedLambda * horizon;
@@ -238,6 +249,9 @@ export function buildPriorityModel({
           prob = poissonPAtLeastK(kTarget, effectiveLambda);
         } else {
           prob = negbinPAtLeastK(kTarget, r, p);
+          const nEff = Math.max(1, nPeriods);
+          const stderr = Math.sqrt(prob * (1 - prob)) / Math.sqrt(nEff);
+          errorMargin = Math.min(0.25, stderr * 1.96);
         }
       }
 
@@ -264,6 +278,16 @@ export function buildPriorityModel({
         kTarget,
         margenRel: metricLine.margenRel,
         variab: metricLine.variab,
+        errorMargin,
+        precisionLevel: totalExposure >= 3 ? 'Alta' : totalExposure >= 1.5 ? 'Media' : 'Baja',
+        nPeriods,
+        modeloLabel:
+          family === 'auto'
+            ? `Auto — ${chosenFamily === 'poisson' ? 'Poisson' : 'NegBin'}`
+            : chosenFamily === 'poisson'
+            ? 'Poisson'
+            : 'NegBin',
+        overconfident: prob >= 0.999,
       };
     });
 
