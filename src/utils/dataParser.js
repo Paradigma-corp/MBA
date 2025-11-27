@@ -14,6 +14,8 @@ export const normalizeBusinessLine = (value) => {
   return text;
 };
 
+const CORE_LINES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+
 const mapRecord = (record) => ({
   ...record,
   segmentacionIGD: record['Nombre segmentación'],
@@ -70,8 +72,8 @@ export const computeCorrelations = (records) => ({
 export const transformToCategories = (records) => {
   const mapped = records.map(mapRecord);
   const groups = mapped.reduce((acc, record) => {
-    const groupKey = record.businessLine || record.segmentacionIGD;
-    if (!groupKey) return acc;
+    const groupKey = record.businessLine;
+    if (!groupKey || !CORE_LINES.includes(groupKey)) return acc;
     if (!acc[groupKey]) {
       acc[groupKey] = [];
     }
