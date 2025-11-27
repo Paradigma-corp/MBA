@@ -200,12 +200,63 @@ const App = () => {
     });
 
     const calc = (values) => {
-      if (!values.length) return { mean: 0, std: 0, min: 0, max: 0 };
-      const meanValue = values.reduce((acc, value) => acc + value, 0) / values.length;
-      const variance = values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / values.length;
+      const n = values.length;
+      if (!n) {
+        return {
+          mean: 0,
+          median: 0,
+          mode: 0,
+          stdSample: 0,
+          varianceSample: 0,
+          stderr: 0,
+          skewness: 0,
+          kurtosis: 0,
+          min: 0,
+          max: 0,
+        };
+      }
+
+      const sorted = [...values].sort((a, b) => a - b);
+      const meanValue = values.reduce((acc, value) => acc + value, 0) / n;
+      const varianceSample = n > 1 ? values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / (n - 1) : 0;
+      const stdSample = Math.sqrt(varianceSample);
+      const stderr = n > 0 ? stdSample / Math.sqrt(n) : 0;
+      const median = n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
+
+      const frequency = new Map();
+      let mode = sorted[0];
+      let maxCount = 0;
+      sorted.forEach((value) => {
+        const count = (frequency.get(value) || 0) + 1;
+        frequency.set(value, count);
+        if (count > maxCount) {
+          maxCount = count;
+          mode = value;
+        }
+      });
+
+      const centered = values.map((value) => value - meanValue);
+      const denom = stdSample > 0 ? stdSample ** 3 : 0;
+      const skewness = n > 2 && denom
+        ? (n / ((n - 1) * (n - 2))) * (centered.reduce((acc, value) => acc + value ** 3, 0) / denom)
+        : 0;
+      const kurtosis =
+        n > 3 && stdSample > 0
+          ?
+            (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3)) *
+              (centered.reduce((acc, value) => acc + value ** 4, 0) / (stdSample ** 4)) -
+            (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
+          : 0;
+
       return {
         mean: meanValue,
-        std: Math.sqrt(variance),
+        median,
+        mode,
+        stdSample,
+        varianceSample,
+        stderr,
+        skewness,
+        kurtosis,
         min: Math.min(...values),
         max: Math.max(...values),
       };
@@ -296,7 +347,7 @@ const App = () => {
           </div>
         ),
       },
-      stats: {
+              stats: {
         title: 'Resumen estadístico',
         body: (
           <div className="space-y-3 text-sm text-slate-700">
@@ -304,27 +355,32 @@ const App = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[{
                 label: 'Margen (%)',
-                mean: formatPercent(statSummary.marginPct.mean),
-                std: formatPercent(statSummary.marginPct.std),
-                min: formatPercent(statSummary.marginPct.min),
-                max: formatPercent(statSummary.marginPct.max),
+                format: formatPercent,
+                stats: statSummary.marginPct,
               }, {
                 label: 'Ingresos (USD millones)',
-                mean: formatMillionsUSD(statSummary.ingresos.mean),
-                std: formatMillionsUSD(statSummary.ingresos.std),
-                min: formatMillionsUSD(statSummary.ingresos.min),
-                max: formatMillionsUSD(statSummary.ingresos.max),
+                format: formatMillionsUSD,
+                stats: statSummary.ingresos,
               }, {
                 label: 'Costos (USD millones)',
-                mean: formatMillionsUSD(statSummary.costos.mean),
-                std: formatMillionsUSD(statSummary.costos.std),
-                min: formatMillionsUSD(statSummary.costos.min),
-                max: formatMillionsUSD(statSummary.costos.max),
+                format: formatMillionsUSD,
+                stats: statSummary.costos,
               }].map((item) => (
                 <div key={item.label} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm space-y-1">
                   <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{item.label}</p>
-                  <p className="text-base font-semibold text-slate-900">Media: {item.mean}</p>
-                  <p className="text-sm text-slate-600">σ: {item.std} | Min: {item.min} | Max: {item.max}</p>
+                  <p className="text-base font-semibold text-slate-900">Media: {item.format(item.stats.mean)}</p>
+                  <p className="text-sm text-slate-600">
+                    Mediana: {item.format(item.stats.median)} · Moda: {item.format(item.stats.mode)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Error típico: {item.format(item.stats.stderr)} · Desv. estándar: {item.format(item.stats.stdSample)} · Varianza (muestral):
+                    {item.format(item.stats.varianceSample)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Asimetría: {formatNumber(item.stats.skewness, { maximumFractionDigits: 2 })} · Curtosis:
+                    {formatNumber(item.stats.kurtosis, { maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-slate-500">Min: {item.format(item.stats.min)} · Max: {item.format(item.stats.max)}</p>
                 </div>
               ))}
             </div>
@@ -887,7 +943,7 @@ const App = () => {
               </div>
             </div>
 
-            <div className="card border border-slate-200/80 shadow-md">
+              <div className="card border border-slate-200/80 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
@@ -909,42 +965,42 @@ const App = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[{
                   label: 'Margen (%)',
-                  mean: formatPercent(statSummary.marginPct.mean),
-                  std: formatPercent(statSummary.marginPct.std),
-                  min: formatPercent(statSummary.marginPct.min),
-                  max: formatPercent(statSummary.marginPct.max),
+                  format: formatPercent,
+                  stats: statSummary.marginPct,
                 },
                 {
                   label: 'Ingresos (USD millones)',
-                  mean: formatMillionsUSD(statSummary.ingresos.mean),
-                  std: formatMillionsUSD(statSummary.ingresos.std),
-                  min: formatMillionsUSD(statSummary.ingresos.min),
-                  max: formatMillionsUSD(statSummary.ingresos.max),
+                  format: formatMillionsUSD,
+                  stats: statSummary.ingresos,
                 },
                 {
                   label: 'Costos (USD millones)',
-                  mean: formatMillionsUSD(statSummary.costos.mean),
-                  std: formatMillionsUSD(statSummary.costos.std),
-                  min: formatMillionsUSD(statSummary.costos.min),
-                  max: formatMillionsUSD(statSummary.costos.max),
+                  format: formatMillionsUSD,
+                  stats: statSummary.costos,
                 }].map((stat) => (
-                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90 space-y-1">
+                    <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-slate-900">{stat.label}</p>
-                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Mean / σ</span>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Tendencia · Dispersión</span>
                     </div>
-                    <div className="flex items-center justify-between text-slate-900">
-                      <p className="text-xl font-semibold">{stat.mean}</p>
-                      <span className="text-sm text-celeste-700 font-medium">± {stat.std}</span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                    <p className="text-xl font-semibold text-slate-900">Media: {stat.format(stat.stats.mean)}</p>
+                    <p className="text-sm text-slate-700">Mediana: {stat.format(stat.stats.median)} · Moda: {stat.format(stat.stats.mode)}</p>
+                    <p className="text-xs text-slate-600">
+                      Error típico: {stat.format(stat.stats.stderr)} · Desv. estándar: {stat.format(stat.stats.stdSample)} · Varianza (muestral):
+                      {stat.format(stat.stats.varianceSample)}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Asimetría: {formatNumber(stat.stats.skewness, { maximumFractionDigits: 2 })} · Curtosis:
+                      {formatNumber(stat.stats.kurtosis, { maximumFractionDigits: 2 })}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
                       <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
                         <p className="text-[10px] uppercase text-slate-500">Mínimo</p>
-                        <p className="font-semibold text-slate-900">{stat.min}</p>
+                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.min)}</p>
                       </div>
                       <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
                         <p className="text-[10px] uppercase text-slate-500">Máximo</p>
-                        <p className="font-semibold text-slate-900">{stat.max}</p>
+                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.max)}</p>
                       </div>
                     </div>
                   </div>
