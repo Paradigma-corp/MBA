@@ -7,12 +7,34 @@ const ensureFinite = (value) => (Number.isFinite(value) ? value : 0);
 const parseNumber = (value) => {
   if (value === undefined || value === null) return NaN;
   if (typeof value === 'number') return value;
-  const cleaned = value
-    .toString()
-    .replace(/[^0-9,.-]/g, '')
-    .replace(/,(?=\d{3}(\D|$))/g, '')
-    .replace(/,/g, '.');
-  return Number(cleaned);
+
+  const text = value.toString().trim();
+  if (!text) return NaN;
+
+  const sanitized = text.replace(/[^0-9,.,-]/g, '');
+  const lastComma = sanitized.lastIndexOf(',');
+  const lastDot = sanitized.lastIndexOf('.');
+
+  let decimalSep = '';
+  if (lastComma !== -1 && lastDot !== -1) {
+    decimalSep = lastComma > lastDot ? ',' : '.';
+  } else if (lastComma !== -1) {
+    decimalSep = /,\d{1,2}$/.test(sanitized) ? ',' : '';
+  } else if (lastDot !== -1) {
+    decimalSep = /\.\d{1,2}$/.test(sanitized) ? '.' : '';
+  }
+
+  if (decimalSep) {
+    const parts = sanitized.split(decimalSep);
+    const fractional = parts.pop() || '';
+    const integer = parts.join('');
+    const intClean = integer.replace(/[.,]/g, '');
+    const fracClean = fractional.replace(/[.,]/g, '');
+    return Number(`${intClean}.${fracClean}`);
+  }
+
+  const integerOnly = sanitized.replace(/[.,]/g, '');
+  return Number(integerOnly);
 };
 
 export const canonicalLine = (raw) => {
