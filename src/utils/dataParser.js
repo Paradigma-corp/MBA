@@ -48,6 +48,40 @@ const parseNumber = (value) => {
   const integerOnly = sanitized.replace(/[.,]/g, '');
   return Number(integerOnly);
 };
+
+const firstNumeric = (record = {}, keys = []) => {
+  for (const key of keys) {
+    if (!(key in record)) continue;
+    const parsed = parseNumber(record[key]);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+};
+
+const INGRESO_KEYS = [
+  'ingresos',
+  'Ingresos',
+  'Ingreso',
+  'Venta',
+  'Ventas',
+  'Total Ingresos',
+  'Ingresos netos',
+];
+
+const COSTO_KEYS = ['costos', 'Costos', 'Costo', 'Total Costos'];
+
+const MARGEN_KEYS = [
+  'margen',
+  'Margen',
+  'Margen total',
+  'margen_total',
+  'Margen Total',
+  'margenTotal',
+  'Margen USD',
+  'Margen promedio',
+  'margen promedio',
+];
+
 const BUSINESS_LINE_KEYS = [
   'lineaNegocio',
   'Linea de negocio',
@@ -86,6 +120,9 @@ const mapRecord = (record) => ({
   segmentacionIGD: record['Nombre segmentación'],
   vendedorSAP: record['Vendedor SAP'],
   businessLine: businessLineFromRecord(record),
+  ingresos: firstNumeric(record, INGRESO_KEYS),
+  costos: firstNumeric(record, COSTO_KEYS),
+  margen: firstNumeric(record, MARGEN_KEYS),
 });
 
 const mean = (values) => values.reduce((acc, val) => acc + val, 0) / (values.length || 1);
