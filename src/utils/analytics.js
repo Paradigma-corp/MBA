@@ -71,21 +71,34 @@ const sumRecordValues = (target, record) => {
   return target;
 };
 
+const pickBusinessLine = (record) => {
+  const candidates = [
+    record.lineaNegocio,
+    record['Linea de negocio'],
+    record['Línea de negocio'],
+    record['lineaNegocio'],
+    record['Linea Negocio'],
+    record['Línea Negocio'],
+    record['linea de negocio'],
+    record['línea de negocio'],
+    record['Nombre segmentación'],
+    record.segmentacionIGD,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeBusinessLine(candidate);
+    if (normalized && CORE_CATEGORIES.includes(normalized)) {
+      return normalized;
+    }
+  }
+
+  return undefined;
+};
+
 const buildCategorySeries = (records) => {
   return records.reduce(
     (acc, record) => {
-      const category =
-        normalizeBusinessLine(
-          record.lineaNegocio ||
-            record['Linea de negocio'] ||
-            record['Línea de negocio'] ||
-            record['lineaNegocio'] ||
-            record['Linea Negocio'] ||
-            record['Línea Negocio'] ||
-            record['linea de negocio'] ||
-            record['línea de negocio'],
-        ) || record['Nombre segmentación'] || record.segmentacionIGD;
-
+      const category = pickBusinessLine(record);
       if (!category) return acc;
 
       const period = `${record.Año || record.year || 's/f'}-${record.Mes || record.month || 's/m'}`;
@@ -122,14 +135,10 @@ const CORE_CATEGORIES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
 export const computeCategoryCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
   const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
-  const discovered = Array.from(foundCategories);
   const preferred = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
 
-  // Mantén la matriz enfocada en las cuatro líneas principales, incluso cuando la base cargada
-  // traiga segmentos adicionales. Solo se consideran otras categorías si ninguna de las core está
-  // presente, para que la vista no mute al cargar CSVs con muchos niveles.
-  const fallback = discovered.filter((cat) => CORE_CATEGORIES.includes(cat));
-  const categories = preferred.length ? preferred : fallback.length ? fallback : discovered;
+  // Mantén la matriz enfocada exclusivamente en las líneas de negocio del curso.
+  const categories = preferred.length ? preferred : [];
   const primaryCategories = categories.slice(0, Math.min(4, categories.length));
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
   const matrices = {};
@@ -150,10 +159,7 @@ export const computeCategoryCorrelations = (records) => {
 export const computeOneVsManyCorrelations = (records) => {
   const safeRecords = Array.isArray(records) ? records : [];
   const { series, categories: foundCategories } = buildCategorySeries(safeRecords);
-  const discovered = Array.from(foundCategories);
-  const preferred = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
-  const fallback = discovered.filter((cat) => CORE_CATEGORIES.includes(cat));
-  const categories = preferred.length ? preferred : fallback.length ? fallback : discovered;
+  const categories = CORE_CATEGORIES.filter((cat) => foundCategories.has(cat));
   const metrics = ['ingresos', 'costos', 'margen', 'unidades'];
 
   return categories.map((category) => {
