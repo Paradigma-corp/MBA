@@ -622,8 +622,6 @@ const App = () => {
                   <p className="text-[11px] text-slate-500">Formato requerido: columnas "Nombre segmentación", "Vendedor SAP", "nombreVendedor", "Unidades UN", "ingresos", "costos", "margen".</p>
                 </div>
               </div>
-            </div>
-
             <div className="card border border-slate-200/80 shadow-md">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
@@ -1025,11 +1023,13 @@ const App = () => {
               />
             </div>
 
-          </div>
-        ) : (
-          <CountingExposurePanel records={filteredRecords} />
-        )}
+            </div>
+
+          ) : (
+            <CountingExposurePanel records={filteredRecords} />
+          )}
       </div>
+    </div>
     </div>
     <Modal open={!!modalConfig} title={modalConfig?.title} onClose={() => setActiveModal(null)}>
       {modalConfig?.body}
