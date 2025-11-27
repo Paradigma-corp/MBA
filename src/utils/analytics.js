@@ -1,4 +1,4 @@
-import { normalizeBusinessLine } from './dataParser.js';
+import { businessLineFromRecord, normalizeBusinessLine, yearFromRecord } from './dataParser.js';
 
 const CORE_CATEGORIES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
 
@@ -63,16 +63,22 @@ const getMarginValue = (record) => {
   return 0;
 };
 
-const resolveCoreCategory = (record) => {
+const resolveCoreCategory = (record = {}) => {
+  // Prefer the shared parser helper so uploaded CSVs with varied headers still map to the core líneas.
+  const fromHelper = businessLineFromRecord(record);
+  if (fromHelper && CORE_CATEGORIES.includes(fromHelper)) return fromHelper;
+
   const normalized = normalizeBusinessLine(
-    record.lineaNegocio ||
+    record.businessLine ||
+      record.lineaNegocio ||
       record['Linea de negocio'] ||
       record['Línea de negocio'] ||
       record['lineaNegocio'] ||
       record['Linea Negocio'] ||
       record['Línea Negocio'] ||
       record['linea de negocio'] ||
-      record['línea de negocio'],
+      record['línea de negocio'] ||
+      record.linea,
   );
 
   if (normalized && CORE_CATEGORIES.includes(normalized)) return normalized;
@@ -119,7 +125,8 @@ const buildCategorySeries = (records) => {
       const category = pickBusinessLine(record);
       if (!category) return acc;
 
-      const period = `${record.Año || record.year || 's/f'}-${record.Mes || record.month || 's/m'}`;
+      const periodYear = yearFromRecord(record) ?? record.Año ?? record.year ?? 's/f';
+      const period = `${periodYear}-${record.Mes || record.month || 's/m'}`;
       if (!acc.series[category]) {
         acc.series[category] = {};
         acc.categories.add(category);
