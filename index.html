@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intro de Bienvenida</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --accent: #38bdf8;
+      --text: #e2e8f0;
+      font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0b1222 0%, #111827 100%);
+      color: var(--text);
+    }
+
+    /* Intro overlay */
+    .intro {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.08), transparent 35%),
+        radial-gradient(circle at 80% 80%, rgba(56, 189, 248, 0.06), transparent 30%),
+        var(--bg);
+      z-index: 10;
+      transition: opacity 600ms ease, visibility 600ms ease;
+    }
+
+    .intro.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .logo-card {
+      display: grid;
+      gap: 1.25rem;
+      justify-items: center;
+      background: rgba(17, 24, 39, 0.7);
+      border: 1px solid rgba(226, 232, 240, 0.08);
+      border-radius: 18px;
+      padding: 2rem 2.75rem;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .logo-mark {
+      width: 70px;
+      height: 70px;
+      border-radius: 20px;
+      background: linear-gradient(145deg, #38bdf8, #0ea5e9);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 12px 24px rgba(56, 189, 248, 0.25);
+    }
+
+    .logo-mark::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.18);
+      filter: blur(1px);
+    }
+
+    .logo-letter {
+      position: relative;
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #0b1222;
+    }
+
+    .tagline {
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+      opacity: 0.9;
+    }
+
+    .loader {
+      width: 70px;
+      height: 70px;
+      border: 4px solid rgba(226, 232, 240, 0.2);
+      border-top-color: #7dd3fc;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Main content */
+    .page {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .card {
+      max-width: 720px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(226, 232, 240, 0.08);
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
+      display: grid;
+      gap: 1rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 2vw + 1rem, 2.8rem);
+    }
+
+    p {
+      line-height: 1.6;
+      color: rgba(226, 232, 240, 0.9);
+    }
+  </style>
+</head>
+<body>
+  <div class="intro" id="intro">
+    <div class="logo-card">
+      <div class="logo-mark">
+        <span class="logo-letter">M</span>
+      </div>
+      <p class="tagline">Cargando tu experiencia digital...</p>
+      <div class="loader" aria-label="Cargando"></div>
+    </div>
+  </div>
+
+  <main class="page" aria-live="polite">
+    <div class="card">
+      <h1>Bienvenido al dashboard</h1>
+      <p>
+        Este es el contenido principal. El intro de carga se muestra durante unos segundos
+        para dar una transición elegante mientras se prepara la aplicación.
+      </p>
+      <p>
+        Personaliza los colores, tipografías y el logotipo para que coincidan con la identidad de tu marca.
+      </p>
+    </div>
+  </main>
+
+  <script>
+    const intro = document.getElementById('intro');
+    const INTRO_DURATION_MS = 5000;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        intro.classList.add('hidden');
+      }, INTRO_DURATION_MS);
+    });
+  </script>
+</body>
+</html>
