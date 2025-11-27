@@ -59,7 +59,7 @@ const Pill = ({ children }) => (
 
   const formatMedianDisplay = (value) => {
     const rounded = Number((value * 100).toFixed(1));
-    if (rounded === 0 && value > 0) return '≈0%';
+    if (rounded === 0 && value >= 0) return '≈0%';
     return `${rounded}%`;
   };
 
@@ -713,7 +713,7 @@ const CountingExposurePanel = ({ records = [] }) => {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => downloadCsv(currentLine?.entries || [])}
+              onClick={() => downloadCsv(filteredEntries)}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700"
             >
               <Download size={16} /> Exportar CSV
@@ -753,7 +753,7 @@ const CountingExposurePanel = ({ records = [] }) => {
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 text-sm text-slate-700 disabled:opacity-50"
                 title="Resalta cambios de P, segmento e índice frente al escenario A guardado"
               >
-                <RefreshCw size={16} /> {compareMode ? 'Salir de comparación' : 'Comparar A vs actual'}
+                <RefreshCw size={16} /> {compareMode ? 'Salir de comparación' : 'Comparar A vs B'}
               </button>
             </div>
         </div>
@@ -761,20 +761,31 @@ const CountingExposurePanel = ({ records = [] }) => {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-xs text-slate-600">Filtro rápido:</span>
-              {['A', 'B', 'C'].map((seg) => (
-              <button
-                key={seg}
-                type="button"
-                onClick={() => toggleSegment(seg)}
-                className={`px-3 py-1 rounded-full border text-xs font-semibold transition ${
-                  segmentFilters[seg]
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-white text-slate-700 border-slate-200'
-                }`}
-              >
-                {seg}
-              </button>
-              ))}
+              {['A', 'B', 'C'].map((seg) => {
+                const colors = {
+                  A: segmentFilters[seg]
+                    ? 'bg-emerald-500 text-white border-emerald-500'
+                    : 'bg-white text-emerald-700 border-emerald-200',
+                  B: segmentFilters[seg]
+                    ? 'bg-amber-400 text-white border-amber-400'
+                    : 'bg-white text-amber-700 border-amber-200',
+                  C: segmentFilters[seg]
+                    ? 'bg-rose-400 text-white border-rose-400'
+                    : 'bg-white text-rose-700 border-rose-200',
+                };
+                return (
+                  <button
+                    key={seg}
+                    type="button"
+                    onClick={() => toggleSegment(seg)}
+                    className={`px-3 py-1 rounded-full border text-xs font-semibold transition ${
+                      colors[seg] || 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {seg}
+                  </button>
+                );
+              })}
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs text-slate-600">Mostrando {filteredEntries.length}/{currentLine?.entries?.length || 0}</span>
