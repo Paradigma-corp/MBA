@@ -1,22 +1,32 @@
-import { businessLineFromRecord, conditionFromRecord, marginFromRecord, yearFromRecord } from './dataParser.js';
+import {
+  businessLineFromRecord,
+  conditionFromRecord,
+  marginFromRecord,
+  sellerFromRecord,
+  yearFromRecord,
+} from './dataParser.js';
 
 export const defaultFilters = {
   years: [],
   condition: 'all',
   marginRange: null,
+  sellers: [],
+  logScale: false,
 };
 
 export const filterRecords = (records = [], filters = defaultFilters) =>
   records.filter((record) => {
     const year = yearFromRecord(record);
     const condition = conditionFromRecord(record);
+    const seller = sellerFromRecord(record);
     const margin = marginFromRecord(record);
     const matchYear =
       filters.years.length === 0 || (year !== undefined && year !== null && filters.years.includes(year));
     const matchCondition = filters.condition === 'all' || (condition && condition.toLowerCase() === filters.condition);
+    const matchSeller = filters.sellers.length === 0 || (seller && filters.sellers.includes(seller));
     const [minMargin, maxMargin] = filters.marginRange ?? [Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY];
     const matchMargin = Number.isFinite(margin) && margin >= minMargin && margin <= maxMargin;
-    return matchYear && matchCondition && matchMargin;
+    return matchYear && matchCondition && matchSeller && matchMargin;
   });
 
 export const deriveFilterOptions = (records = []) => {
@@ -52,9 +62,20 @@ export const deriveFilterOptions = (records = []) => {
     .map((record) => marginFromRecord(record))
     .filter((value) => Number.isFinite(value));
 
+  const sellers = Array.from(
+    new Set(
+      records
+        .map((record) => sellerFromRecord(record))
+        .filter((value) => value !== undefined && value !== null)
+        .map((value) => value.toString()),
+    ),
+  )
+    .filter((value) => value)
+    .sort((a, b) => a.localeCompare(b));
+
   const marginRange = margins.length
     ? { min: Math.min(...margins), max: Math.max(...margins) }
     : { min: 0, max: 0 };
 
-  return { years, businessLines, conditions, marginRange };
+  return { years, businessLines, conditions, marginRange, sellers };
 };

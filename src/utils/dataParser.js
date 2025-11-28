@@ -155,6 +155,9 @@ const YEAR_KEYS = ['año', 'ano', 'anio', 'year', 'periodo', 'período'];
 
 const CONDITION_KEYS = ['nuevo/usado', 'nuevo o usado', 'condición', 'condicion', 'estado unidad'];
 
+const SELLER_KEYS = ['nombrevendedor', 'vendedor', 'vendedor sap', 'seller', 'asesor'];
+const MODEL_KEYS = ['modelo', 'model', 'vehículo', 'vehiculo', 'vehículo sap', 'vehiculo sap'];
+
 export const yearFromRecord = (record = {}) => {
   if (Number.isFinite(record.Año)) return record.Año;
   if (Number.isFinite(record.año)) return record.año;
@@ -180,6 +183,34 @@ export const marginFromRecord = (record = {}) => {
   }
 
   return Number.isFinite(record.margen) ? Number(record.margen) : undefined;
+};
+
+export const sellerFromRecord = (record = {}) => {
+  if (record.nombreVendedor) return record.nombreVendedor.toString();
+
+  const entries = Object.entries(record);
+  for (const lowerKey of SELLER_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const value = textFromRecord(entries, lowerKey);
+    if (value) return value;
+  }
+
+  return undefined;
+};
+
+export const modelFromRecord = (record = {}) => {
+  if (record.modelo) return record.modelo.toString();
+
+  const entries = Object.entries(record);
+  for (const lowerKey of MODEL_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const value = textFromRecord(entries, lowerKey);
+    if (value) return value;
+  }
+
+  return undefined;
 };
 
 export const conditionFromRecord = (record = {}) => {
@@ -231,6 +262,8 @@ const mapRecord = (record) => {
     vendedorSAP: record['Vendedor SAP'] || record['vendedor sap'] || record['Vendedor'],
     businessLine: businessLineFromRecord(record),
     condition: conditionFromRecord(record),
+    sellerName: sellerFromRecord(record),
+    modelName: modelFromRecord(record),
     ingresos,
     costos,
     margen,

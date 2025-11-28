@@ -1,4 +1,4 @@
-import { yearFromRecord } from './dataParser.js';
+import { modelFromRecord, sellerFromRecord, yearFromRecord } from './dataParser.js';
 
 const percentile = (values = [], p = 0.5) => {
   if (!values.length) return 0;
@@ -41,7 +41,7 @@ const bootstrapMedianCI = (values = [], samples = 2000, confidence = 0.95) => {
   return { lower, upper, samples: sorted };
 };
 
-export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000 } = {}) => {
+export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000, outlierRule = 'tukey' } = {}) => {
   const groups = new Map();
 
   records.forEach((record) => {
@@ -50,17 +50,25 @@ export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000 }
     if (!line || !Number.isFinite(margin)) return;
 
     if (!groups.has(line)) {
-      groups.set(line, { margins: [], years: new Set(), sellers: new Set() });
+      groups.set(line, { margins: [], years: new Set(), sellers: new Set(), detail: [] });
     }
     const group = groups.get(line);
     group.margins.push(margin);
     const year = yearFromRecord(record);
     if (year !== undefined && year !== null) group.years.add(year);
-    if (record.nombreVendedor) group.sellers.add(record.nombreVendedor);
+    const seller = sellerFromRecord(record);
+    if (seller) group.sellers.add(seller);
+    group.detail.push({
+      margin,
+      year,
+      seller,
+      model: modelFromRecord(record),
+      line,
+    });
   });
 
   return Array.from(groups.entries())
-    .map(([line, { margins, years, sellers }]) => {
+    .map(([line, { margins, years, sellers, detail }]) => {
       if (!margins.length) return null;
       const n = margins.length;
       const q1 = percentile(margins, 0.25);
@@ -73,8 +81,10 @@ export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000 }
       const cvRobust = med !== 0 ? madValue / Math.abs(med) : 0;
       const lowerFence = q1 - 1.5 * iqr;
       const upperFence = q3 + 1.5 * iqr;
-      const outliers = margins.filter((value) => value < lowerFence || value > upperFence);
-      const outlierPct = n ? (outliers.length / n) * 100 : 0;
+      const outliersTukey = detail.filter((item) => item.margin < lowerFence || item.margin > upperFence);
+      const outliersPRange = detail.filter((item) => item.margin < p10 || item.margin > p90);
+      const activeOutliers = outlierRule === 'pRange' ? outliersPRange : outliersTukey;
+      const outlierPct = n ? (activeOutliers.length / n) * 100 : 0;
       const { lower: ciLower, upper: ciUpper } = bootstrapMedianCI(margins, bootstrapSamples, 0.95);
 
       return {
@@ -90,7 +100,9 @@ export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000 }
         mad: madValue,
         cvRobust,
         outlierPct,
-        outliers,
+        outliers: activeOutliers,
+        outliersTukey,
+        outliersPRange,
         lowerFence,
         upperFence,
         ciLower,
@@ -98,6 +110,7 @@ export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000 }
         years: Array.from(years).sort((a, b) => a - b),
         sellers: Array.from(sellers),
         margins,
+        outlierRule,
       };
     })
     .filter(Boolean)
