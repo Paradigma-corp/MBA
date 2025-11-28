@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import {
   Activity,
@@ -29,13 +29,15 @@ import WaterfallCalculator from './components/calculators/WaterfallCalculator.js
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
 import {
-  businessLineFromRecord,
   computeCorrelations,
   computeStatSummary,
+  normalizeRecords,
   transformToCategories,
   transformToSalespeople,
-  yearFromRecord,
 } from './utils/dataParser.js';
+import { useAnalyticsData } from './hooks/useAnalyticsData.js';
+import { defaultFilters, deriveFilterOptions } from './utils/filters.js';
+import { formatCurrency, formatMillionsUSD, formatNumber, formatPercent } from './utils/formatters.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
@@ -67,85 +69,52 @@ const heroSlides = [
 ];
 
 const App = () => {
+  const [rawRecords, setRawRecords] = useState(demoRecords);
+  const [dataSource, setDataSource] = useState('demo');
+  const [filters, setFilters] = useState(() => ({ ...defaultFilters }));
   const [config, setConfig] = useState({
     rSquared: 0.85,
     betaIngreso: 0.75,
     betaCosto: -0.65,
     pearsonCoef: 0.92,
   });
-  const [bootstrapIterations, setBootstrapIterations] = useState(2000);
-  const [categories, setCategories] = useState(() => {
-    const transformed = transformToCategories(demoRecords);
-    return performBootstrap(transformed, 5000);
-  });
-  const [salespeople, setSalespeople] = useState(transformToSalespeople(demoRecords));
-  const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
-  const [statSummary, setStatSummary] = useState(() => computeStatSummary(demoRecords));
-  const [rawRecords, setRawRecords] = useState(demoRecords);
-  const [dataSource, setDataSource] = useState('demo');
-  const [workerReady, setWorkerReady] = useState(false);
-  const [filters, setFilters] = useState({
-    years: [],
-    businessLine: 'all',
-  });
+  const INITIAL_BOOTSTRAP = 5000;
+  const [bootstrapIterations, setBootstrapIterations] = useState(INITIAL_BOOTSTRAP);
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
-  const workerRef = useRef(null);
 
-  useEffect(() => {
-    const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = (event) => {
-      const {
-        categories: newCategories,
-        salespeople: newSalespeople,
-        correlations: newCorrelations,
-        statSummary: newStatSummary,
-      } = event.data;
-      setCategories(newCategories);
-      setSalespeople(newSalespeople);
-      setCorrelations(newCorrelations);
-      if (newStatSummary) setStatSummary(newStatSummary);
-    };
-    workerRef.current = worker;
-    setWorkerReady(true);
-    return () => worker.terminate();
-  }, []);
+  const normalizedDemo = useMemo(() => normalizeRecords(demoRecords), []);
+  const demoCategories = useMemo(
+    () => transformToCategories(normalizedDemo, { normalized: true }),
+    [normalizedDemo],
+  );
+  const initialData = useMemo(
+    () => ({
+      categories: performBootstrap(demoCategories, INITIAL_BOOTSTRAP),
+      salespeople: transformToSalespeople(normalizedDemo, { normalized: true }),
+      correlations: computeCorrelations(normalizedDemo, { normalized: true }),
+      statSummary: computeStatSummary(normalizedDemo, { normalized: true }),
+    }),
+    [demoCategories, normalizedDemo],
+  );
 
-  const businessLineOf = (record) => businessLineFromRecord(record);
-
-  const filteredRecords = useMemo(() => {
-    return rawRecords.filter((record) => {
-      const year = yearFromRecord(record);
-      const matchYear = filters.years.length === 0 || (year !== undefined && filters.years.includes(year));
-      const line = businessLineOf(record);
-      const matchBusiness = filters.businessLine === 'all' || (line && line === filters.businessLine);
-      return matchYear && matchBusiness;
-    });
-  }, [filters, rawRecords]);
-
-  useEffect(() => {
-    if (!workerReady || !workerRef.current) return;
-    const timer = setTimeout(() => {
-      workerRef.current.postMessage({
-        records: filteredRecords,
-        iterations: bootstrapIterations,
-        confidenceLevel: 0.95,
-      });
-    }, 80);
-
-    return () => clearTimeout(timer);
-  }, [filteredRecords, bootstrapIterations, workerReady]);
+  const { categories, salespeople, correlations, statSummary, filteredRecords } = useAnalyticsData({
+    rawRecords,
+    filters,
+    iterations: bootstrapIterations,
+    confidenceLevel: 0.95,
+    initialData,
+  });
 
   const handleFile = (file) => {
-    if (!workerRef.current) return;
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
         const parsed = results.data.filter((row) => row['Nombre segmentación']);
-        setFilters({ years: [], businessLine: 'all' });
+        setFilters({ ...defaultFilters });
         setRawRecords(parsed);
         setDataSource('imported');
       },
@@ -156,13 +125,9 @@ const App = () => {
   };
 
   const resetDemo = () => {
-    const transformed = transformToCategories(demoRecords);
-    setCategories(performBootstrap(transformed, bootstrapIterations));
-    setSalespeople(transformToSalespeople(demoRecords));
-    setCorrelations(computeCorrelations(demoRecords));
-    setStatSummary(computeStatSummary(demoRecords));
     setRawRecords(demoRecords);
-    setFilters({ years: [], businessLine: 'all' });
+    setFilters({ ...defaultFilters });
+    setBootstrapIterations(INITIAL_BOOTSTRAP);
     setDataSource('demo');
   };
 
@@ -201,40 +166,7 @@ const App = () => {
     return Object.entries(grouped).map(([name, margins]) => ({ name, margins }));
   }, [filteredRecords]);
 
-  const filterOptions = useMemo(() => {
-    const years = Array.from(
-      new Set(
-        rawRecords
-          .map((item) => yearFromRecord(item))
-          .filter((year) => year !== undefined && year !== null && !Number.isNaN(year)),
-      ),
-    ).sort((a, b) => a - b);
-    const businessLines = Array.from(
-      new Set(
-        rawRecords
-          .map((item) => businessLineOf(item))
-          .filter((value) => value !== undefined && value !== null)
-          .map((value) => value.toString()),
-      ),
-    )
-      .filter((value) => value)
-      .sort((a, b) => a.localeCompare(b));
-    return { years, businessLines };
-  }, [rawRecords]);
-
-  const formatNumber = (value, options = {}) =>
-    Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
-
-  const formatCurrency = (value) =>
-    Number.isFinite(value) ? `$${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : '—';
-
-  const formatMillionsUSD = (value) => {
-    if (!Number.isFinite(value)) return '—';
-    const millions = value / 1_000_000;
-    return `$${millions.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
-  };
-
-  const formatPercent = (value) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : '—');
+  const filterOptions = useMemo(() => deriveFilterOptions(rawRecords), [rawRecords]);
 
   const modalDetails = useMemo(
     () => ({
