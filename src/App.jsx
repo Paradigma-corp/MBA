@@ -54,6 +54,7 @@ import CategoryCorrelationModule from './components/analytics/CategoryCorrelatio
 import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
 import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
+import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
 
 const heroSlides = [
   {
@@ -634,6 +635,17 @@ const App = () => {
                 }`}
               >
                 Pronóstico FOM y semáforo
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePage('mix')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'mix'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Optimizador de mix
               </button>
             </div>
 
@@ -1355,6 +1367,8 @@ const App = () => {
 
           ) : activePage === 'counting' ? (
             <CountingExposurePanel records={filteredRecords} />
+          ) : activePage === 'mix' ? (
+            <MixOptimizerPanel records={filteredRecords} />
           ) : (
             <FomForecastPanel records={filteredRecords} />
           )}
