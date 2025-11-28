@@ -1,22 +1,5 @@
 import React, { useMemo } from 'react';
 import Select, { components } from 'react-select';
-import { FixedSizeList as List } from 'react-window';
-
-const ITEM_HEIGHT = 34;
-
-const MenuList = (props) => {
-  const { children } = props;
-  const itemCount = children?.length ?? 0;
-  const height = Math.min(itemCount, 10) * ITEM_HEIGHT;
-  if (!itemCount) return <components.MenuList {...props} />;
-  return (
-    <components.MenuList {...props}>
-      <List height={height} itemCount={itemCount} itemSize={ITEM_HEIGHT} width="100%">
-        {({ index, style }) => <div style={style}>{children[index]}</div>}
-      </List>
-    </components.MenuList>
-  );
-};
 
 const MultiValueContainer = (props) => {
   const selected = props.getValue();
@@ -115,7 +98,7 @@ const VendorMultiSelect = ({ options = [], valueSet, onChange, placeholder = 'Se
         menuPortalTarget={document.body}
         menuPlacement="auto"
         maxMenuHeight={320}
-        components={{ MenuList, MultiValueContainer, Input, Option }}
+        components={{ MultiValueContainer, Input, Option }}
         value={value}
         onChange={handleChange}
         className="w-full"
