@@ -1,22 +1,5 @@
 import React, { useMemo } from 'react';
 import Select, { components } from 'react-select';
-import { FixedSizeList as List } from 'react-window';
-
-const ITEM_HEIGHT = 34;
-
-const MenuList = (props) => {
-  const { children } = props;
-  const itemCount = children?.length ?? 0;
-  const height = Math.min(itemCount, 10) * ITEM_HEIGHT;
-  if (!itemCount) return <components.MenuList {...props} />;
-  return (
-    <components.MenuList {...props}>
-      <List height={height} itemCount={itemCount} itemSize={ITEM_HEIGHT} width="100%">
-        {({ index, style }) => <div style={style}>{children[index]}</div>}
-      </List>
-    </components.MenuList>
-  );
-};
 
 const MultiValueContainer = (props) => {
   const selected = props.getValue();
@@ -43,7 +26,11 @@ const Input = (props) => (
         .map((value) => value.trim())
         .filter(Boolean);
       if (!tokens.length) return;
-      const optionMap = new Map(props.selectProps.options.map((opt) => [opt.value, opt]));
+      const optionMap = new Map(
+        (props.selectProps.options || [])
+          .flatMap((opt) => (opt.options ? opt.options : [opt]))
+          .map((opt) => [opt.value, opt]),
+      );
       const current = new Map(props.selectProps.value.map((opt) => [opt.value, opt]));
       tokens.forEach((token) => {
         if (optionMap.has(token)) current.set(token, optionMap.get(token));
@@ -53,10 +40,21 @@ const Input = (props) => (
   />
 );
 
+const Checkbox = ({ checked }) => (
+  <span
+    className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+      checked ? 'bg-celeste-600 border-celeste-600' : 'bg-white border-slate-300'
+    }`}
+    aria-hidden="true"
+  >
+    {checked && <span className="h-1.5 w-1.5 rounded-sm bg-white" />}
+  </span>
+);
+
 const Option = (props) => (
   <components.Option {...props}>
     <div className="flex items-center gap-2">
-      <input type="checkbox" readOnly checked={props.isSelected} className="h-3.5 w-3.5" />
+      <Checkbox checked={props.isSelected} />
       <span className="text-sm text-slate-800">{props.label}</span>
       {props.data.line && <span className="ml-auto text-[11px] text-slate-500">{props.data.line}</span>}
     </div>
@@ -77,8 +75,13 @@ const VendorMultiSelect = ({ options = [], valueSet, onChange, placeholder = 'Se
   const value = useMemo(() => options.filter((opt) => valueSet?.has(opt.value)), [options, valueSet]);
 
   const handleChange = (selected) => {
-    const nextSet = new Set((selected ?? []).map((opt) => opt.value));
-    onChange(nextSet);
+    try {
+      const normalized = Array.isArray(selected) ? selected : selected ? [selected] : [];
+      const nextSet = new Set(normalized.map((opt) => opt.value).filter(Boolean));
+      onChange(nextSet);
+    } catch (error) {
+      console.error('Vendor filter update failed', error);
+    }
   };
 
   return (
@@ -112,10 +115,9 @@ const VendorMultiSelect = ({ options = [], valueSet, onChange, placeholder = 'Se
           valueContainer: (base) => ({ ...base, gap: 4, paddingLeft: 10 }),
           menu: (base) => ({ ...base, zIndex: 50 }),
         }}
-        menuPortalTarget={document.body}
         menuPlacement="auto"
         maxMenuHeight={320}
-        components={{ MenuList, MultiValueContainer, Input, Option }}
+        components={{ MultiValueContainer, Input, Option }}
         value={value}
         onChange={handleChange}
         className="w-full"
