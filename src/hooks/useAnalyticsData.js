@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { computeCorrelations, computeStatSummary, normalizeRecords, transformToCategories, transformToSalespeople } from '../utils/dataParser.js';
+import {
+  computeCorrelations,
+  computeStatSummary,
+  normalizeRecords,
+  transformToCategories,
+  transformToSalespeople,
+} from '../utils/dataParser.js';
 import { performBootstrap } from '../utils/bootstrap.js';
-import { filterRecords } from '../utils/filters.js';
+import { selectSample } from '../utils/filters.js';
 
-const DEBOUNCE_MS = 80;
+const DEBOUNCE_MS = 240;
 
-export const useAnalyticsData = ({
-  rawRecords,
-  filters,
-  iterations,
-  confidenceLevel = 0.95,
-  initialData,
-}) => {
+export const useAnalyticsData = ({ rawRecords, filters, iterations, confidenceLevel = 0.95, initialData }) => {
   const [categories, setCategories] = useState(initialData?.categories ?? []);
   const [salespeople, setSalespeople] = useState(initialData?.salespeople ?? []);
   const [correlations, setCorrelations] = useState(initialData?.correlations ?? {});
@@ -20,7 +20,7 @@ export const useAnalyticsData = ({
   const [workerReady, setWorkerReady] = useState(false);
   const workerRef = useRef(null);
 
-  const filteredRecords = useMemo(() => filterRecords(rawRecords, filters), [rawRecords, filters]);
+  const filteredRecords = useMemo(() => selectSample(rawRecords, filters), [rawRecords, filters]);
 
   useEffect(() => {
     const worker = new Worker(new URL('../workers/dataWorker.js', import.meta.url), { type: 'module' });
@@ -61,12 +61,5 @@ export const useAnalyticsData = ({
     setStatSummary(computeStatSummary(normalized, { normalized: true }));
   }, [confidenceLevel, initialData, iterations, rawRecords]);
 
-  return {
-    categories,
-    salespeople,
-    correlations,
-    statSummary,
-    filteredRecords,
-    pending,
-  };
+  return { categories, salespeople, correlations, statSummary, filteredRecords, pending };
 };

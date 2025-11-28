@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowUpRight,
   BarChart3,
+  Download,
   CloudUpload,
   Home,
   MapPin,
@@ -35,11 +36,20 @@ import {
   transformToSalespeople,
 } from './utils/dataParser.js';
 import { useAnalyticsData } from './hooks/useAnalyticsData.js';
-import { defaultFilters, deriveFilterOptions } from './utils/filters.js';
+import {
+  clampMarginRange,
+  createDefaultFilters,
+  deriveFilterOptions,
+  deriveMarginBounds,
+  parseFiltersFromQuery,
+  serializeFiltersToQuery,
+} from './utils/filters.js';
 import { formatCurrency, formatMillionsUSD, formatNumber, formatPercent } from './utils/formatters.js';
+import { summarizeMarginsByLine } from './utils/marginStats.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
+import VendorMultiSelect from './components/ui/VendorMultiSelect.jsx';
 import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
 import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
@@ -70,7 +80,12 @@ const heroSlides = [
 const App = () => {
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
-  const [filters, setFilters] = useState(() => ({ ...defaultFilters }));
+  const initialFilterOptions = useMemo(() => deriveFilterOptions(demoRecords), []);
+  const [filterOptions, setFilterOptions] = useState(initialFilterOptions);
+  const [filters, setFilters] = useState(() =>
+    clampMarginRange(parseFiltersFromQuery(window.location.search, initialFilterOptions), initialFilterOptions.marginRange),
+  );
+  const [marginBounds, setMarginBounds] = useState(initialFilterOptions.marginRange);
   const [config, setConfig] = useState({
     rSquared: 0.85,
     betaIngreso: 0.75,
@@ -82,6 +97,10 @@ const App = () => {
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
+  const [showOutliers, setShowOutliers] = useState(true);
+  const [outlierRule, setOutlierRule] = useState('pRange');
+  const [reviewQueue, setReviewQueue] = useState([]);
+  const chartRef = useRef(null);
 
   const normalizedDemo = useMemo(() => normalizeRecords(demoRecords), []);
   const demoCategories = useMemo(
@@ -106,14 +125,18 @@ const App = () => {
     initialData,
   });
 
+  const normalizedFiltered = useMemo(() => normalizeRecords(filteredRecords), [filteredRecords]);
+
   const handleFile = (file) => {
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsed = results.data.filter((row) => row['Nombre segmentación']);
-        setFilters({ ...defaultFilters });
+        const parsed = results.data.filter((row) => row && Object.keys(row).length > 0);
+        const options = deriveFilterOptions(parsed);
+        setFilterOptions(options);
+        setFilters(createDefaultFilters(options));
         setRawRecords(parsed);
         setDataSource('imported');
       },
@@ -124,8 +147,10 @@ const App = () => {
   };
 
   const resetDemo = () => {
+    const options = deriveFilterOptions(demoRecords);
     setRawRecords(demoRecords);
-    setFilters({ ...defaultFilters });
+    setFilterOptions(options);
+    setFilters(createDefaultFilters(options));
     setBootstrapIterations(INITIAL_BOOTSTRAP);
     setDataSource('demo');
   };
@@ -151,21 +176,168 @@ const App = () => {
     [categories, salespeople, totals.marginPct],
   );
 
-  const boxPlotData = useMemo(() => {
-    const grouped = filteredRecords.reduce((acc, record) => {
-      const name = record['Nombre segmentación'] || record.segmentacionIGD;
-      if (!name) return acc;
-      const marginValue = Number(record.margen);
-      if (!Number.isFinite(marginValue)) return acc;
-      if (!acc[name]) acc[name] = [];
-      acc[name].push(marginValue);
-      return acc;
-    }, {});
+  const marginSummaries = useMemo(
+    () =>
+      summarizeMarginsByLine(normalizedFiltered, {
+        bootstrapSamples: 2000,
+        outlierRule,
+        includeOutliers: showOutliers,
+      }),
+    [normalizedFiltered, outlierRule, showOutliers],
+  );
 
-    return Object.entries(grouped).map(([name, margins]) => ({ name, margins }));
-  }, [filteredRecords]);
+  useEffect(() => {
+    const options = deriveFilterOptions(rawRecords);
+    setFilterOptions(options);
+  }, [rawRecords]);
 
-  const filterOptions = useMemo(() => deriveFilterOptions(rawRecords), [rawRecords]);
+  useEffect(() => {
+    const bounds = deriveMarginBounds(rawRecords, filters);
+    setMarginBounds(bounds);
+  }, [filters.condicion, filters.vendedores, filters.years, rawRecords]);
+
+  useEffect(() => {
+    setFilters((prev) => {
+      const clamped = clampMarginRange(prev, marginBounds);
+      if (clamped.mMin === prev.mMin && clamped.mMax === prev.mMax) return prev;
+      return clamped;
+    });
+  }, [marginBounds]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const query = serializeFiltersToQuery(filters);
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState(null, '', nextUrl);
+    }, 240);
+    return () => clearTimeout(timer);
+  }, [filters]);
+
+  const APA_FOOTER =
+    'Nota. Bigotes = percentiles 10 y 90; banda = IC95% bootstrap (B=2000) de la mediana. Fuente: Divemotor (panel interno).';
+
+  const triggerDownload = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleMarkReview = (record) => {
+    const normalized = {
+      line: record.line || record.businessLine || 'Sin línea',
+      year: record.year ?? record.Año ?? record.año ?? null,
+      seller: record.seller || record.sellerName || record.nombreVendedor || '—',
+      model: record.model || record.modelName || record.modelo || '—',
+      margin: record.margin,
+    };
+
+    setReviewQueue((prev) => {
+      const exists = prev.some(
+        (item) =>
+          item.line === normalized.line &&
+          item.margin === normalized.margin &&
+          item.seller === normalized.seller &&
+          item.year === normalized.year &&
+          item.model === normalized.model,
+      );
+      if (exists) return prev;
+      return [...prev, normalized];
+    });
+  };
+
+  const exportCsv = () => {
+    if (!marginSummaries.length) return;
+    const header = [
+      'Linea',
+      'N',
+      'Mediana',
+      'Q1',
+      'Q3',
+      'IQR',
+      'P10',
+      'P90',
+      'P90-P10',
+      'MAD',
+      'CV_robusto',
+      '%Outliers',
+      'IC95_Lower',
+      'IC95_Upper',
+    ];
+
+    const lines = marginSummaries.map((item) =>
+      [
+        item.line,
+        item.n,
+        item.median,
+        item.q1,
+        item.q3,
+        item.iqr,
+        item.p10,
+        item.p90,
+        item.pRange,
+        item.mad,
+        item.cvRobust,
+        item.outlierPctVisible,
+        item.ciLower,
+        item.ciUpper,
+      ].join(','),
+    );
+
+    lines.push(`"Pie de nota","${APA_FOOTER.replace(/"/g, '""')}"`);
+    const blob = new Blob([`${header.join(',')}` + '\n' + lines.join('\n')], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    triggerDownload(blob, 'margenes_boxplot.csv');
+  };
+
+  const exportReviewCsv = () => {
+    if (!reviewQueue.length) return;
+    const header = ['Linea', 'Año', 'Vendedor', 'Modelo', 'Margen'];
+    const lines = reviewQueue.map((item) =>
+      [item.line, item.year ?? '', item.seller ?? '', item.model ?? '', item.margin ?? ''].join(','),
+    );
+    lines.push(`"Pie de nota","${APA_FOOTER.replace(/"/g, '""')}"`);
+    const blob = new Blob([`${header.join(',')}` + '\n' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    triggerDownload(blob, 'margenes_marcados.csv');
+  };
+
+  const exportPng = () => {
+    const svg = chartRef.current?.querySelector('svg');
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const image = new Image();
+    image.onload = () => {
+      const footerHeight = 50;
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height + footerHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0);
+      ctx.fillStyle = '#475569';
+      ctx.font = '14px Inter, system-ui, sans-serif';
+      ctx.fillText(APA_FOOTER, 12, image.height + 30);
+      canvas.toBlob((blob) => {
+        if (blob) triggerDownload(blob, 'margenes_boxplot.png');
+      });
+      URL.revokeObjectURL(url);
+    };
+    image.src = url;
+  };
+
+  const marginRange = [filters.mMin, filters.mMax];
+  const sliderStep = useMemo(() => {
+    const spread = marginBounds.max - marginBounds.min;
+    if (!Number.isFinite(spread) || spread === 0) return 1;
+    return Math.max(spread / 200, 0.01);
+  }, [marginBounds]);
 
   const modalDetails = useMemo(
     () => ({
@@ -308,8 +480,8 @@ const App = () => {
         title: 'Distribución de márgenes',
         body: (
           <div className="space-y-3 text-sm text-slate-700">
-            <p>Boxplot por categoría con mediana, cuartiles y valores extremos para márgenes.</p>
-            <p className="text-slate-600">Sirve para identificar outliers y amplitud de variación entre segmentos antes de fijar metas.</p>
+            <p>Boxplot por línea con bigotes P10–P90, banda IC95% de la mediana (bootstrap B=2000) y opción de mostrar outliers.</p>
+            <p className="text-slate-600">Sirve para identificar variabilidad robusta, valores extremos y dispersión intercuartil antes de fijar metas.</p>
           </div>
         ),
       },
@@ -538,50 +710,25 @@ const App = () => {
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                   <p className="text-xs uppercase text-slate-500">Filtros de análisis</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Nuevos / Usados y años relevantes</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Año, condición y rango de margen</h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFilters({ years: [], businessLine: 'all' })}
+                  onClick={() => setFilters(createDefaultFilters(filterOptions))}
                   className="text-sm text-celeste-700 hover:text-celeste-800"
                 >
                   Limpiar filtros
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase text-slate-500">Nuevos / Usados (línea de negocio)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[{ label: 'Todos', value: 'all' }, ...filterOptions.businessLines.map((line) => ({ label: line, value: line }))].map(
-                      (option) => {
-                        const active = filters.businessLine === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setFilters((prev) => ({ ...prev, businessLine: option.value }))}
-                            className={`px-3 py-2 rounded-xl border text-sm transition ${
-                              active
-                                ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
-                                : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      },
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-500">Selecciona si quieres ver solo unidades nuevas, usadas o todo.</p>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-xs uppercase text-slate-500">Año (selección múltiple)</label>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="space-y-3 lg:col-span-2">
+                  <label className="text-xs uppercase text-slate-500">Año</label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setFilters((prev) => ({ ...prev, years: [] }))}
+                      onClick={() => setFilters((prev) => ({ ...prev, years: new Set() }))}
                       className={`px-3 py-2 rounded-xl border text-sm transition ${
-                        filters.years.length === 0
+                        filters.years.size === 0
                           ? 'bg-celeste-50 border-celeste-200 text-celeste-800'
                           : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
                       }`}
@@ -589,16 +736,20 @@ const App = () => {
                       Todos los años
                     </button>
                     {filterOptions.years.map((year) => {
-                      const active = filters.years.includes(year);
+                      const active = filters.years.has(year);
                       return (
                         <button
                           key={year}
                           type="button"
                           onClick={() =>
                             setFilters((prev) => {
-                              const exists = prev.years.includes(year);
-                              const nextYears = exists ? prev.years.filter((y) => y !== year) : [...prev.years, year];
-                              return { ...prev, years: nextYears.sort((a, b) => a - b) };
+                              const nextYears = new Set(prev.years);
+                              if (nextYears.has(year)) {
+                                nextYears.delete(year);
+                              } else {
+                                nextYears.add(year);
+                              }
+                              return { ...prev, years: nextYears };
                             })
                           }
                           className={`px-3 py-2 rounded-xl border text-sm transition ${
@@ -612,25 +763,144 @@ const App = () => {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-slate-500">Puedes combinar varios años para un análisis acumulado.</p>
+                  <p className="text-xs text-slate-500">Combina varios años (2022–2025) o usa “Todos los años”.</p>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-xs uppercase text-slate-500">Nuevo / Usado</label>
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions.conditions.map((condition) => {
+                      const active = filters.condicion === condition;
+                      return (
+                        <button
+                          key={condition}
+                          type="button"
+                          onClick={() => setFilters((prev) => ({ ...prev, condicion: condition }))}
+                          className={`px-3 py-2 rounded-xl border text-sm transition ${
+                            active
+                              ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                          }`}
+                        >
+                          {condition}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-slate-500">La máscara única aplica al boxplot, dispersión y KPIs.</p>
+                </div>
+                <div className="space-y-3 lg:col-span-2">
+                  <VendorMultiSelect
+                    options={filterOptions.sellers}
+                    valueSet={filters.vendedores}
+                    onChange={(nextSet) => setFilters((prev) => ({ ...prev, vendedores: nextSet }))}
+                    placeholder="Selecciona vendedores"
+                  />
+                  <p className="text-xs text-slate-500">Búsqueda rápida (&lt;100 ms) con lista virtualizada y grupos por línea.</p>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="space-y-2 lg:col-span-2">
+                  <label className="text-xs uppercase text-slate-500">Rango de margen (slider doble)</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={marginBounds.min}
+                      max={marginBounds.max}
+                      step={sliderStep}
+                      value={marginRange[0]}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setFilters((prev) => ({
+                          ...prev,
+                          mMin: Math.min(next, prev.mMax),
+                        }));
+                      }}
+                      className="flex-1"
+                    />
+                    <input
+                      type="range"
+                      min={marginBounds.min}
+                      max={marginBounds.max}
+                      step={sliderStep}
+                      value={marginRange[1]}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setFilters((prev) => ({
+                          ...prev,
+                          mMax: Math.max(next, prev.mMin),
+                        }));
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>Min: {formatCurrency(Math.max(marginRange[0], marginBounds.min))}</span>
+                    <span>Max: {formatCurrency(Math.min(marginRange[1], marginBounds.max))}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Al cambiar año/condición se recalculan los límites reales y se hace clamp automático.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase text-slate-500">Preferencias</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={filters.logScale}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, logScale: e.target.checked }))}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    <span className="text-sm text-slate-700">Escala log en boxplot</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Se aplica solo al gráfico de márgenes.</p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
                   <BarChart3 size={12} /> {filteredRecords.length.toLocaleString()} registros filtrados
                 </span>
-                {filters.years.length > 0 && (
-                  <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
-                    Años {filters.years.join(', ')}
-                  </span>
+                {filters.years.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, years: new Set() }))}
+                    className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100 hover:bg-celeste-100"
+                  >
+                    Años {Array.from(filters.years).sort().join(', ')} ✕
+                  </button>
                 )}
-                {filters.businessLine !== 'all' && (
-                  <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
-                    {filters.businessLine}
-                  </span>
+                {filters.condicion !== 'Todos' && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, condicion: 'Todos' }))}
+                    className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100 hover:bg-celeste-100"
+                  >
+                    {filters.condicion} ✕
+                  </button>
                 )}
+                {filters.vendedores.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, vendedores: new Set() }))}
+                    className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100 hover:bg-celeste-100"
+                  >
+                    Vendedores ({filters.vendedores.size}) ✕
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFilters((prev) => ({ ...prev, mMin: marginBounds.min, mMax: marginBounds.max }))}
+                  className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] border border-slate-200 hover:bg-slate-100"
+                >
+                  Márgenes {formatCurrency(marginRange[0])} – {formatCurrency(marginRange[1])} ✕
+                </button>
               </div>
             </div>
+
+            {filteredRecords.length === 0 && (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                Sin datos bajo estos filtros.
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {[{
@@ -884,25 +1154,86 @@ const App = () => {
               <BarChartComponent data={categories} />
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="card border border-slate-200/80 shadow-md xl:col-span-2">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-semibold text-slate-900">Dispersión ingreso vs margen</h3>
-                  <span className="text-xs text-slate-500">Bootstrap 95%</span>
+            <div className="card border border-slate-200/80 shadow-md">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-900">Dispersión ingreso vs margen</h3>
+                <span className="text-xs text-slate-500">Bootstrap 95%</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('dispersion')}
+                  className="text-xs text-celeste-700 hover:text-celeste-800"
+                >
+                  Ver popup
+                </button>
+              </div>
+              <ScatterPlot data={categories} />
+            </div>
+
+            <div className="card border border-slate-200/80 shadow-md space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
+                  <p className="text-xs text-slate-500">Bigotes P10–P90 · Banda IC95% mediana (bootstrap 2,000)</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white">
+                    <input
+                      type="checkbox"
+                      checked={showOutliers}
+                      onChange={(e) => setShowOutliers(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Outliers incluidos
+                  </label>
+                  <div className="flex items-center gap-1 text-xs px-2 py-1 rounded-xl border border-slate-200 bg-white">
+                    <span className="text-[11px] text-slate-500">Regla outliers:</span>
+                    {[{ label: 'P10–P90', value: 'pRange' }, { label: 'Tukey', value: 'tukey' }].map((option) => {
+                      const active = outlierRule === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setOutlierRule(option.value)}
+                          className={`px-2 py-1 rounded-lg border text-xs ${
+                            active
+                              ? 'bg-celeste-600 text-white border-celeste-600'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700">
+                    Regla: {outlierRule === 'pRange' ? 'P10–P90' : 'Tukey 1.5·IQR'}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setActiveModal('dispersion')}
-                    className="text-xs text-celeste-700 hover:text-celeste-800"
+                    onClick={exportPng}
+                    className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
                   >
-                    Ver popup
+                    <Download size={14} /> PNG
                   </button>
-                </div>
-                <ScatterPlot data={categories} />
-              </div>
-              <div className="card border border-slate-200/80 shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
-                  <span className="text-xs text-slate-500">Outliers incluidos</span>
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
+                  >
+                    <Download size={14} /> CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportReviewCsv}
+                    disabled={!reviewQueue.length}
+                    className={`inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border ${
+                      reviewQueue.length
+                        ? 'border-slate-200 text-slate-700 bg-white hover:border-celeste-200'
+                        : 'border-slate-100 text-slate-400 bg-slate-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <Download size={14} /> Marcados ({reviewQueue.length})
+                  </button>
                   <button
                     type="button"
                     onClick={() => setActiveModal('boxplot')}
@@ -911,7 +1242,60 @@ const App = () => {
                     Ver popup
                   </button>
                 </div>
-                <BoxPlot data={boxPlotData} />
+              </div>
+              <div className="border border-slate-200 rounded-2xl bg-white p-3" ref={chartRef}>
+                <BoxPlot
+                  data={marginSummaries}
+                  showOutliers={showOutliers}
+                  outlierRule={outlierRule}
+                  logScale={filters.logScale}
+                  onMarkReview={handleMarkReview}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {marginSummaries.map((item) => (
+                  <div key={item.line} className="p-3 rounded-xl border border-slate-200 bg-slate-50/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{item.line}</p>
+                        <p className="text-[11px] text-slate-500">Años: {item.years.length ? item.years.join(', ') : '—'}</p>
+                      </div>
+                      <span className="text-[11px] px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700">N {item.n}</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700">
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Mediana</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.median)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">IQR</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.iqr)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">P90 - P10</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.pRange)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">CV robusto</p>
+                        <p className="font-semibold text-slate-900">{formatPercent(item.cvRobust)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">% outliers</p>
+                        {showOutliers ? (
+                          <p className="font-semibold text-slate-900">
+                            {formatPercent(item.outlierPctVisible)} ({item.outlierCountVisible}/{item.n})
+                          </p>
+                        ) : (
+                          <p className="font-semibold text-slate-900">Ocultos</p>
+                        )}
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">IC95% mediana</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.ciLower)} – {formatCurrency(item.ciUpper)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 

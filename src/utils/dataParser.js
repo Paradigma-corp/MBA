@@ -38,11 +38,9 @@ export const normalizeBusinessLine = (value) => {
   return text;
 };
 
-const CORE_LINES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
-
 const numberCache = new Map();
 
-const parseNumber = (value) => {
+export const parseNumber = (value) => {
   if (value === undefined || value === null) return NaN;
   if (typeof value === 'number') return value;
 
@@ -84,6 +82,15 @@ const parseNumber = (value) => {
 const getEntryCaseInsensitive = (recordEntries, targetLower) =>
   recordEntries.find(([key]) => key.toLowerCase() === targetLower);
 
+const textFromRecord = (recordEntries, lowerKey) => {
+  const found = getEntryCaseInsensitive(recordEntries, lowerKey);
+  if (!found) return undefined;
+  const value = found[1];
+  if (value === undefined || value === null) return undefined;
+  const text = value.toString().trim();
+  return text || undefined;
+};
+
 const firstNumeric = (record = {}, keys = []) => {
   const entries = Object.entries(record);
   const lowerKeys = keys.map((key) => key.toLowerCase());
@@ -122,13 +129,14 @@ const MARGEN_KEYS = [
 ];
 
 const BUSINESS_LINE_KEYS = [
-  'lineanegocio',
+  'línea de negocio',
   'linea de negocio',
+  'linea_negocio',
+  'linea negocio',
+  'lineanegocio',
   'línea de negocio',
   'linea',
   'línea',
-  'linea_negocio',
-  'linea negocio',
   'nombre linea',
   'nombre línea',
   'nombre de línea',
@@ -138,9 +146,17 @@ const BUSINESS_LINE_KEYS = [
   'segmentación',
   'segmentacion',
   'segmentacion igd',
+  'línea de negocio',
+  'linea de negocio',
+  'linea_negocio',
 ];
 
 const YEAR_KEYS = ['año', 'ano', 'anio', 'year', 'periodo', 'período'];
+
+const CONDITION_KEYS = ['nuevo/usado', 'nuevo o usado', 'condición', 'condicion', 'estado unidad'];
+
+const SELLER_KEYS = ['nombrevendedor', 'vendedor', 'vendedor sap', 'seller', 'asesor'];
+const MODEL_KEYS = ['modelo', 'model', 'vehículo', 'vehiculo', 'vehículo sap', 'vehiculo sap'];
 
 export const yearFromRecord = (record = {}) => {
   if (Number.isFinite(record.Año)) return record.Año;
@@ -157,22 +173,74 @@ export const yearFromRecord = (record = {}) => {
   return undefined;
 };
 
+export const marginFromRecord = (record = {}) => {
+  const entries = Object.entries(record);
+  for (const lowerKey of MARGEN_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const parsed = parseNumber(found[1]);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return Number.isFinite(record.margen) ? Number(record.margen) : undefined;
+};
+
+export const sellerFromRecord = (record = {}) => {
+  if (record.nombreVendedor) return record.nombreVendedor.toString();
+
+  const entries = Object.entries(record);
+  for (const lowerKey of SELLER_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const value = textFromRecord(entries, lowerKey);
+    if (value) return value;
+  }
+
+  return undefined;
+};
+
+export const modelFromRecord = (record = {}) => {
+  if (record.modelo) return record.modelo.toString();
+
+  const entries = Object.entries(record);
+  for (const lowerKey of MODEL_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const value = textFromRecord(entries, lowerKey);
+    if (value) return value;
+  }
+
+  return undefined;
+};
+
+export const conditionFromRecord = (record = {}) => {
+  const entries = Object.entries(record);
+  const direct = textFromRecord(entries, 'nuevo/usado');
+  if (direct) return direct;
+
+  for (const lowerKey of CONDITION_KEYS) {
+    const text = textFromRecord(entries, lowerKey);
+    if (!text) continue;
+    if (/^nuev/i.test(text)) return 'Nuevo';
+    if (/^usad/i.test(text)) return 'Usado';
+    return text;
+  }
+
+  return undefined;
+};
+
 export const businessLineFromRecord = (record = {}) => {
   const entries = Object.entries(record);
   for (const lowerKey of BUSINESS_LINE_KEYS) {
     const found = getEntryCaseInsensitive(entries, lowerKey);
     if (!found) continue;
     const normalized = normalizeBusinessLine(found[1]);
-    if (normalized && CORE_LINES.includes(normalized)) {
-      return normalized;
-    }
+    if (normalized) return normalized;
   }
 
   for (const [, value] of entries) {
     const normalized = normalizeBusinessLine(value);
-    if (normalized && CORE_LINES.includes(normalized)) {
-      return normalized;
-    }
+    if (normalized) return normalized;
   }
 
   return undefined;
@@ -181,7 +249,7 @@ export const businessLineFromRecord = (record = {}) => {
 const mapRecord = (record) => {
   const ingresos = firstNumeric(record, INGRESO_KEYS);
   const costos = firstNumeric(record, COSTO_KEYS);
-  let margen = firstNumeric(record, MARGEN_KEYS);
+  let margen = marginFromRecord(record);
 
   if (!Number.isFinite(margen) && Number.isFinite(ingresos) && Number.isFinite(costos)) {
     margen = ingresos - costos;
@@ -193,6 +261,9 @@ const mapRecord = (record) => {
       record['Nombre segmentación'] || record['nombre segmentación'] || record['nombre segmentacion'],
     vendedorSAP: record['Vendedor SAP'] || record['vendedor sap'] || record['Vendedor'],
     businessLine: businessLineFromRecord(record),
+    condition: conditionFromRecord(record),
+    sellerName: sellerFromRecord(record),
+    modelName: modelFromRecord(record),
     ingresos,
     costos,
     margen,
@@ -253,7 +324,7 @@ export const transformToCategories = (records, { normalized = false } = {}) => {
   const mapped = ensureNormalized(records, normalized);
   const groups = mapped.reduce((acc, record) => {
     const groupKey = record.businessLine;
-    if (!groupKey || !CORE_LINES.includes(groupKey)) return acc;
+    if (!groupKey) return acc;
     if (!acc[groupKey]) {
       acc[groupKey] = [];
     }
