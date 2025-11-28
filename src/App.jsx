@@ -53,6 +53,7 @@ import VendorMultiSelect from './components/ui/VendorMultiSelect.jsx';
 import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
 import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
+import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
 
 const heroSlides = [
   {
@@ -622,6 +623,17 @@ const App = () => {
                 }`}
               >
                 Modelo de conteo con exposición
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePage('fom')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'fom'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Pronóstico FOM y semáforo
               </button>
             </div>
 
@@ -1341,8 +1353,10 @@ const App = () => {
 
             </div>
 
-          ) : (
+          ) : activePage === 'counting' ? (
             <CountingExposurePanel records={filteredRecords} />
+          ) : (
+            <FomForecastPanel records={filteredRecords} />
           )}
       </div>
     </div>
