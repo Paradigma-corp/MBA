@@ -57,7 +57,8 @@ export const selectSample = (rows = [], f = createDefaultFilters()) =>
     .filter((r) => {
       const normalized = normalizeFinancialRecord(r);
       const margin = Number.isFinite(normalized.margen) ? normalized.margen : marginFromRecord(r);
-      return Number.isFinite(margin) && margin >= f.mMin && margin <= f.mMax;
+      if (!Number.isFinite(margin)) return true;
+      return margin >= f.mMin && margin <= f.mMax;
     });
 
 export const clampMarginRange = (filters, bounds) => ({
