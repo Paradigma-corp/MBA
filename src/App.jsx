@@ -29,35 +29,40 @@ import WaterfallCalculator from './components/calculators/WaterfallCalculator.js
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
 import {
+  businessLineFromRecord,
   computeCorrelations,
-  normalizeBusinessLine,
+  normalizeFinancialRecord,
   transformToCategories,
   transformToSalespeople,
+  yearFromRecord,
 } from './utils/dataParser.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
+import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
+import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
+import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
 
 const heroSlides = [
   {
     title: 'Automóviles',
     subtitle: 'Mercedes-Benz EQS y Clase E para dirección y flotas ejecutivas.',
-    image: '/images/hero-automoviles.svg',
+    image: '/images/hero-automoviles.jpg',
   },
   {
     title: 'Camiones',
     subtitle: 'Tractos Mercedes-Benz Actros listos para logística pesada confiable.',
-    image: '/images/hero-camiones.svg',
+    image: '/images/hero-camiones.jpg',
   },
   {
     title: 'Vans',
     subtitle: 'Mercedes-Benz Sprinter para reparto urbano y transporte ejecutivo.',
-    image: '/images/hero-vans.svg',
+    image: '/images/hero-vans.jpg',
   },
   {
     title: 'Buses',
     subtitle: 'Mercedes-Benz Citaro para rutas con confort y eficiencia.',
-    image: '/images/hero-buses.svg',
+    image: '/images/hero-buses.jpg',
   },
 ];
 
@@ -82,6 +87,7 @@ const App = () => {
     years: [],
     businessLine: 'all',
   });
+  const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
   const workerRef = useRef(null);
@@ -99,21 +105,12 @@ const App = () => {
     return () => worker.terminate();
   }, []);
 
-  const businessLineOf = (record) =>
-    normalizeBusinessLine(
-      record.lineaNegocio ||
-        record['Linea de negocio'] ||
-        record['Línea de negocio'] ||
-        record['lineaNegocio'] ||
-        record['Linea Negocio'] ||
-        record['Línea Negocio'] ||
-        record['linea de negocio'] ||
-        record['línea de negocio'],
-    );
+  const businessLineOf = (record) => businessLineFromRecord(record);
 
   const filteredRecords = useMemo(() => {
     return rawRecords.filter((record) => {
-      const matchYear = filters.years.length === 0 || filters.years.includes(record.Año);
+      const year = yearFromRecord(record);
+      const matchYear = filters.years.length === 0 || (year !== undefined && filters.years.includes(year));
       const line = businessLineOf(record);
       const matchBusiness = filters.businessLine === 'all' || (line && line === filters.businessLine);
       return matchYear && matchBusiness;
@@ -184,9 +181,10 @@ const App = () => {
     const costos = [];
 
     filteredRecords.forEach((item) => {
-      const ingreso = Number(item.ingresos);
-      const costo = Number(item.costos);
-      const margen = Number(item.margen);
+      const normalized = normalizeFinancialRecord(item);
+      const ingreso = normalized.ingresos;
+      const costo = normalized.costos;
+      const margen = normalized.margen;
 
       if (Number.isFinite(ingreso)) ingresos.push(ingreso);
       if (Number.isFinite(costo)) costos.push(costo);
@@ -196,12 +194,63 @@ const App = () => {
     });
 
     const calc = (values) => {
-      if (!values.length) return { mean: 0, std: 0, min: 0, max: 0 };
-      const meanValue = values.reduce((acc, value) => acc + value, 0) / values.length;
-      const variance = values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / values.length;
+      const n = values.length;
+      if (!n) {
+        return {
+          mean: 0,
+          median: 0,
+          mode: 0,
+          stdSample: 0,
+          varianceSample: 0,
+          stderr: 0,
+          skewness: 0,
+          kurtosis: 0,
+          min: 0,
+          max: 0,
+        };
+      }
+
+      const sorted = [...values].sort((a, b) => a - b);
+      const meanValue = values.reduce((acc, value) => acc + value, 0) / n;
+      const varianceSample = n > 1 ? values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / (n - 1) : 0;
+      const stdSample = Math.sqrt(varianceSample);
+      const stderr = n > 0 ? stdSample / Math.sqrt(n) : 0;
+      const median = n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
+
+      const frequency = new Map();
+      let mode = sorted[0];
+      let maxCount = 0;
+      sorted.forEach((value) => {
+        const count = (frequency.get(value) || 0) + 1;
+        frequency.set(value, count);
+        if (count > maxCount) {
+          maxCount = count;
+          mode = value;
+        }
+      });
+
+      const centered = values.map((value) => value - meanValue);
+      const denom = stdSample > 0 ? stdSample ** 3 : 0;
+      const skewness = n > 2 && denom
+        ? (n / ((n - 1) * (n - 2))) * (centered.reduce((acc, value) => acc + value ** 3, 0) / denom)
+        : 0;
+      const kurtosis =
+        n > 3 && stdSample > 0
+          ?
+            (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3)) *
+              (centered.reduce((acc, value) => acc + value ** 4, 0) / (stdSample ** 4)) -
+            (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
+          : 0;
+
       return {
         mean: meanValue,
-        std: Math.sqrt(variance),
+        median,
+        mode,
+        stdSample,
+        varianceSample,
+        stderr,
+        skewness,
+        kurtosis,
         min: Math.min(...values),
         max: Math.max(...values),
       };
@@ -230,7 +279,13 @@ const App = () => {
   }, [filteredRecords]);
 
   const filterOptions = useMemo(() => {
-    const years = Array.from(new Set(rawRecords.map((item) => item.Año).filter(Boolean))).sort((a, b) => a - b);
+    const years = Array.from(
+      new Set(
+        rawRecords
+          .map((item) => yearFromRecord(item))
+          .filter((year) => year !== undefined && year !== null && !Number.isNaN(year)),
+      ),
+    ).sort((a, b) => a - b);
     const businessLines = Array.from(
       new Set(
         rawRecords
@@ -246,6 +301,9 @@ const App = () => {
 
   const formatNumber = (value, options = {}) =>
     Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
+
+  const formatCurrency = (value) =>
+    Number.isFinite(value) ? `$${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : '—';
 
   const formatMillionsUSD = (value) => {
     if (!Number.isFinite(value)) return '—';
@@ -292,7 +350,7 @@ const App = () => {
           </div>
         ),
       },
-      stats: {
+              stats: {
         title: 'Resumen estadístico',
         body: (
           <div className="space-y-3 text-sm text-slate-700">
@@ -300,31 +358,61 @@ const App = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[{
                 label: 'Margen (%)',
-                mean: formatPercent(statSummary.marginPct.mean),
-                std: formatPercent(statSummary.marginPct.std),
-                min: formatPercent(statSummary.marginPct.min),
-                max: formatPercent(statSummary.marginPct.max),
+                format: formatPercent,
+                stats: statSummary.marginPct,
               }, {
-                label: 'Ingresos (USD millones)',
-                mean: formatMillionsUSD(statSummary.ingresos.mean),
-                std: formatMillionsUSD(statSummary.ingresos.std),
-                min: formatMillionsUSD(statSummary.ingresos.min),
-                max: formatMillionsUSD(statSummary.ingresos.max),
+                label: 'Ingresos (USD)',
+                format: formatCurrency,
+                stats: statSummary.ingresos,
               }, {
-                label: 'Costos (USD millones)',
-                mean: formatMillionsUSD(statSummary.costos.mean),
-                std: formatMillionsUSD(statSummary.costos.std),
-                min: formatMillionsUSD(statSummary.costos.min),
-                max: formatMillionsUSD(statSummary.costos.max),
+                label: 'Costos (USD)',
+                format: formatCurrency,
+                stats: statSummary.costos,
               }].map((item) => (
                 <div key={item.label} className="p-3 rounded-xl bg-white border border-slate-200 shadow-sm space-y-1">
                   <p className="text-[11px] uppercase tracking-[0.08em] text-slate-500">{item.label}</p>
-                  <p className="text-base font-semibold text-slate-900">Media: {item.mean}</p>
-                  <p className="text-sm text-slate-600">σ: {item.std} | Min: {item.min} | Max: {item.max}</p>
+                  <p className="text-base font-semibold text-slate-900">Media: {item.format(item.stats.mean)}</p>
+                  <p className="text-sm text-slate-600">
+                    Mediana: {item.format(item.stats.median)} · Moda: {item.format(item.stats.mode)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Error típico: {item.format(item.stats.stderr)} · Desv. estándar: {item.format(item.stats.stdSample)} · Varianza (muestral):
+                    {item.format(item.stats.varianceSample)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Asimetría: {formatNumber(item.stats.skewness, { maximumFractionDigits: 2 })} · Curtosis:
+                    {formatNumber(item.stats.kurtosis, { maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-xs text-slate-500">Min: {item.format(item.stats.min)} · Max: {item.format(item.stats.max)}</p>
                 </div>
               ))}
             </div>
             <p className="text-xs text-slate-500">Muestras consideradas: {statSummary.muestras.toLocaleString()}</p>
+          </div>
+        ),
+      },
+      scatterIngreso: {
+        title: 'Margen vs Ingresos — versión completa',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Se muestra la nube completa con más puntos y mayor contraste según la cantidad de repeticiones.</p>
+            <CorrelationScatter records={filteredRecords} xKey="ingresos" yKey="margen" maxPoints={6000} height={420} />
+          </div>
+        ),
+      },
+      scatterCostos: {
+        title: 'Margen vs Costos — versión completa',
+        body: (
+          <div className="space-y-3 text-sm text-slate-700">
+            <p>Haz zoom visual en la dispersión de costos versus margen con intensidad por celdas repetidas.</p>
+            <CorrelationScatter
+              records={filteredRecords}
+              xKey="costos"
+              yKey="margen"
+              color="#0c89aa"
+              maxPoints={6000}
+              height={420}
+            />
           </div>
         ),
       },
@@ -371,21 +459,8 @@ const App = () => {
           </div>
         ),
       },
-      worker: {
-        title: 'Procesamiento con Web Worker',
-        body: (
-          <div className="space-y-3 text-sm text-slate-700">
-            <p>Las transformaciones, correlaciones y bootstrap se ejecutan fuera del hilo principal para evitar bloqueos.</p>
-            <ul className="list-disc list-inside space-y-1 text-slate-600">
-              <li>CSV de 10,741 filas se parsea y agrupa en background.</li>
-              <li>Las visualizaciones se actualizan cuando el worker responde con categorías, vendedores y correlaciones.</li>
-              <li>Puedes volver a datos demo sin recargar la página.</li>
-            </ul>
-          </div>
-        ),
-      },
     }),
-    [categories, correlations, statSummary, totals],
+    [categories, correlations, filteredRecords, statSummary, totals],
   );
 
   const nav = [
@@ -485,7 +560,33 @@ const App = () => {
           <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 space-y-6">
             <Header />
 
-            <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setActivePage('dashboard')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'dashboard'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Panel principal
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePage('counting')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'counting'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Modelo de conteo con exposición
+              </button>
+            </div>
+
+            {activePage === 'dashboard' ? (
+              <div className="space-y-4">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
                 <div className="relative h-[320px] w-full">
                   <img src={heroSlides[activeSlide].image} alt={heroSlides[activeSlide].title} className="absolute inset-0 w-full h-full object-cover" />
@@ -580,8 +681,6 @@ const App = () => {
                   <p className="text-[11px] text-slate-500">Formato requerido: columnas "Nombre segmentación", "Vendedor SAP", "nombreVendedor", "Unidades UN", "ingresos", "costos", "margen".</p>
                 </div>
               </div>
-            </div>
-
             <div className="card border border-slate-200/80 shadow-md">
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
@@ -732,7 +831,72 @@ const App = () => {
               })}
             </div>
 
-              <div className="card border border-slate-200/80 shadow-md">
+            <div className="card border border-slate-200/80 shadow-md">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Tendencia central y dispersión</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('stats')}
+                    className="text-sm text-celeste-700 hover:text-celeste-800"
+                  >
+                    Ver popup
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[{
+                  label: 'Margen (%)',
+                  format: formatPercent,
+                  stats: statSummary.marginPct,
+                },
+                {
+                  label: 'Ingresos (USD)',
+                  format: formatCurrency,
+                  stats: statSummary.ingresos,
+                },
+                {
+                  label: 'Costos (USD)',
+                  format: formatCurrency,
+                  stats: statSummary.costos,
+                }].map((stat) => (
+                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900">{stat.label}</p>
+                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Tendencia · Dispersión</span>
+                    </div>
+                    <p className="text-xl font-semibold text-slate-900">Media: {stat.format(stat.stats.mean)}</p>
+                    <p className="text-sm text-slate-700">Mediana: {stat.format(stat.stats.median)} · Moda: {stat.format(stat.stats.mode)}</p>
+                    <p className="text-xs text-slate-600">
+                      Error típico: {stat.format(stat.stats.stderr)} · Desv. estándar: {stat.format(stat.stats.stdSample)} · Varianza (muestral):
+                      {stat.format(stat.stats.varianceSample)}
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Asimetría: {formatNumber(stat.stats.skewness, { maximumFractionDigits: 2 })} · Curtosis:
+                      {formatNumber(stat.stats.kurtosis, { maximumFractionDigits: 2 })}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Mínimo</p>
+                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.min)}</p>
+                      </div>
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Máximo</p>
+                        <p className="font-semibold text-slate-900">{stat.format(stat.stats.max)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card border border-slate-200/80 shadow-md">
                 <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                   <div>
                     <p className="text-xs uppercase text-slate-500">Correlaciones</p>
@@ -767,16 +931,34 @@ const App = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-slate-900">Margen vs Ingresos</p>
-                      <span className="text-[11px] text-slate-500">Scatter filtrado</span>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Margen vs Ingresos</p>
+                        <p className="text-[11px] text-slate-500">Tamaño e intensidad según repeticiones de puntos</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveModal('scatterIngreso')}
+                        className="text-[11px] px-3 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-celeste-200 hover:text-celeste-700"
+                      >
+                        Versión completa
+                      </button>
                     </div>
                     <CorrelationScatter records={filteredRecords} xKey="ingresos" yKey="margen" />
                   </div>
                   <div className="p-4 rounded-2xl border border-slate-200 bg-white/90">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-slate-900">Margen vs Costos</p>
-                      <span className="text-[11px] text-slate-500">Scatter filtrado</span>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">Margen vs Costos</p>
+                        <p className="text-[11px] text-slate-500">Color y tamaño refuerzan la densidad de repeticiones</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveModal('scatterCostos')}
+                        className="text-[11px] px-3 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-celeste-200 hover:text-celeste-700"
+                      >
+                        Versión completa
+                      </button>
                     </div>
                     <CorrelationScatter records={filteredRecords} xKey="costos" yKey="margen" color="#0c89aa" />
                   </div>
@@ -784,68 +966,48 @@ const App = () => {
               </div>
             </div>
 
-            <div className="card border border-slate-200/80 shadow-md">
-              <div className="flex items-center justify-between mb-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase text-slate-500">Resumen estadístico</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Tendencia central y dispersión</h3>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                    <BarChart3 size={14} /> {statSummary.muestras.toLocaleString()} muestras
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('stats')}
-                    className="text-sm text-celeste-700 hover:text-celeste-800"
-                  >
-                    Ver popup
-                  </button>
+                  <p className="text-xs uppercase text-slate-500">🔍 Correlación y regresión comparativa entre categorías</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Interdependencia entre Autos, Vans, Camiones y Buses</h3>
+                  <p className="text-sm text-slate-600">
+                    Explora qué tan alineadas están las líneas de negocio entre sí y qué tan independiente es Autos frente al resto
+                    usando correlaciones y un modelo de regresión con variables dummy.
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[{
-                  label: 'Margen (%)',
-                  mean: formatPercent(statSummary.marginPct.mean),
-                  std: formatPercent(statSummary.marginPct.std),
-                  min: formatPercent(statSummary.marginPct.min),
-                  max: formatPercent(statSummary.marginPct.max),
-                },
-                {
-                  label: 'Ingresos (USD millones)',
-                  mean: formatMillionsUSD(statSummary.ingresos.mean),
-                  std: formatMillionsUSD(statSummary.ingresos.std),
-                  min: formatMillionsUSD(statSummary.ingresos.min),
-                  max: formatMillionsUSD(statSummary.ingresos.max),
-                },
-                {
-                  label: 'Costos (USD millones)',
-                  mean: formatMillionsUSD(statSummary.costos.mean),
-                  std: formatMillionsUSD(statSummary.costos.std),
-                  min: formatMillionsUSD(statSummary.costos.min),
-                  max: formatMillionsUSD(statSummary.costos.max),
-                }].map((stat) => (
-                  <div key={stat.label} className="p-4 rounded-2xl border border-slate-200 bg-white/90">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-semibold text-slate-900">{stat.label}</p>
-                      <span className="text-[11px] text-slate-500 uppercase tracking-[0.1em]">Mean / σ</span>
-                    </div>
-                    <div className="flex items-center justify-between text-slate-900">
-                      <p className="text-xl font-semibold">{stat.mean}</p>
-                      <span className="text-sm text-celeste-700 font-medium">± {stat.std}</span>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-[10px] uppercase text-slate-500">Mínimo</p>
-                        <p className="font-semibold text-slate-900">{stat.min}</p>
-                      </div>
-                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-200">
-                        <p className="text-[10px] uppercase text-slate-500">Máximo</p>
-                        <p className="font-semibold text-slate-900">{stat.max}</p>
-                      </div>
-                    </div>
+
+              <div className="card border border-slate-200/80 shadow-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs uppercase text-slate-500">Correlación entre categorías</p>
+                    <h4 className="text-base font-semibold text-slate-900">1 a 1 y 1 vs conjunto</h4>
+                    <p className="text-sm text-slate-600">
+                      Matrices y textos interpretativos que se recalculan automáticamente con los filtros activos.
+                    </p>
                   </div>
-                ))}
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
+                    Incluye margen, ingresos, costos y unidades
+                  </span>
+                </div>
+                <CategoryCorrelationModule records={filteredRecords} />
+              </div>
+
+              <div className="card border border-slate-200/80 shadow-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs uppercase text-slate-500">Modelo de regresión: independencia y solvencia de Autos</p>
+                    <h4 className="text-base font-semibold text-slate-900">Coeficientes β editables y R²</h4>
+                    <p className="text-sm text-slate-600">
+                      Ajusta los dummies por categoría y obtén una conclusión automática sobre el peso de Autos frente al resto.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
+                    Conclusión automática y tabla resumen
+                  </span>
+                </div>
+                <RegressionComparisonModule records={filteredRecords} />
               </div>
             </div>
 
@@ -920,31 +1082,19 @@ const App = () => {
               />
             </div>
 
-            <div className="card border border-slate-200/80 shadow-md flex flex-wrap items-center justify-between gap-4">
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Respaldo</p>
-                <h3 className="text-lg font-semibold text-slate-900">Worker dedicado para las 10,741 filas</h3>
-                <p className="text-sm text-slate-600">Transformación y bootstrap corren fuera del hilo principal para mantener la UI suave.</p>
-              </div>
-              <div className="px-4 py-3 rounded-2xl bg-celeste-50 text-celeste-700 border border-celeste-100 flex items-center gap-2">
-                <ShieldCheck size={16} /> Estabilidad garantizada
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveModal('worker')}
-                className="text-sm text-celeste-700 hover:text-celeste-800"
-              >
-                Ver detalle en popup
-              </button>
             </div>
-          </div>
-        </div>
+
+          ) : (
+            <CountingExposurePanel records={filteredRecords} />
+          )}
       </div>
-      <Modal open={!!modalConfig} title={modalConfig?.title} onClose={() => setActiveModal(null)}>
-        {modalConfig?.body}
-      </Modal>
     </div>
-  );
+    </div>
+    <Modal open={!!modalConfig} title={modalConfig?.title} onClose={() => setActiveModal(null)}>
+      {modalConfig?.body}
+    </Modal>
+  </div>
+);
 };
 
 export default App;
