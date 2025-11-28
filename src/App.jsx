@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import {
   Activity,
@@ -117,7 +117,7 @@ const App = () => {
     [demoCategories, normalizedDemo],
   );
 
-  const { categories, salespeople, correlations, statSummary, filteredRecords } = useAnalyticsData({
+  const { categories, salespeople, correlations, statSummary, filteredRecords, pending } = useAnalyticsData({
     rawRecords,
     filters,
     iterations: bootstrapIterations,
@@ -499,6 +499,18 @@ const App = () => {
 
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
 
+  const workerBadge = pending ? (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold">
+      <RefreshCw size={14} className="animate-spin" />
+      Calculando con filtros activos
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold">
+      <ShieldCheck size={14} />
+      Worker listo, UI libre de bloqueos
+    </span>
+  );
+
   return (
     <div className="min-h-screen text-slate-900 bg-[#f6f7f9]">
       <div className="bg-black text-white border-b border-black/60">
@@ -538,7 +550,10 @@ const App = () => {
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
               Datos {dataSource === 'demo' ? 'demo' : 'CSV importado'}
             </span>
-            <span className="text-xs text-slate-500">Procesando 10,741 filas sin muestreo</span>
+            <span className="text-xs text-slate-500 flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${pending ? 'bg-amber-500' : 'bg-emerald-500'} shadow`} />
+              {pending ? 'Recalculando métricas en background…' : 'Listo para filtrar sin muestreo'}
+            </span>
           </div>
         </div>
       </div>
@@ -623,13 +638,14 @@ const App = () => {
                         <h2 className="text-3xl lg:text-4xl font-semibold leading-tight">{heroSlides[activeSlide].title}</h2>
                         <p className="text-sm lg:text-base text-white/85">{heroSlides[activeSlide].subtitle}</p>
                       </div>
-                      <div className="px-4 py-2 rounded-full bg-white/15 border border-white/20 backdrop-blur-sm inline-flex items-center gap-2 text-xs font-semibold">
-                        <RefreshCw size={14} /> {dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
-                        <Activity size={16} /> Margen medio {formatPercent(stats.marginPct)}
+                  <div className="px-4 py-2 rounded-full bg-white/15 border border-white/20 backdrop-blur-sm inline-flex items-center gap-2 text-xs font-semibold">
+                    <RefreshCw size={14} className={pending ? 'animate-spin' : ''} />{' '}
+                    {dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
+                    <Activity size={16} /> Margen medio {formatPercent(stats.marginPct)}
                       </div>
                       <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
                         <Users size={16} /> {stats.vendedores} vendedores
@@ -693,8 +709,12 @@ const App = () => {
                     Volver a demo
                   </button>
                 </div>
-                <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                  Web Worker aislado evita bloqueos de UI al transformar las 10,741 filas. Bootstrap configurable mantiene la precisión.
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-slate-900">Web Worker aislado evita bloqueos al transformar las 10,741 filas.</p>
+                    <p className="text-slate-600">Bootstrap configurable mantiene la precisión; el estado se muestra en vivo.</p>
+                  </div>
+                  {workerBadge}
                 </div>
                 <div className="mt-3 p-3 rounded-2xl bg-slate-900/5 border border-slate-200 text-xs text-slate-600 space-y-1">
                   <p className="font-semibold text-slate-900 text-sm">¿Cómo cargar la base de datos?</p>
