@@ -86,6 +86,7 @@ const App = () => {
     clampMarginRange(parseFiltersFromQuery(window.location.search, initialFilterOptions), initialFilterOptions.marginRange),
   );
   const [marginBounds, setMarginBounds] = useState(initialFilterOptions.marginRange);
+  const previousMarginBounds = useRef(initialFilterOptions.marginRange);
   const [config, setConfig] = useState({
     rSquared: 0.85,
     betaIngreso: 0.75,
@@ -198,10 +199,14 @@ const App = () => {
 
   useEffect(() => {
     setFilters((prev) => {
+      const prevBounds = previousMarginBounds.current;
+      const followsPrevBounds = prevBounds && prev.mMin === prevBounds.min && prev.mMax === prevBounds.max;
       const clamped = clampMarginRange(prev, marginBounds);
-      if (clamped.mMin === prev.mMin && clamped.mMax === prev.mMax) return prev;
-      return clamped;
+      const next = followsPrevBounds ? { ...prev, mMin: marginBounds.min, mMax: marginBounds.max } : clamped;
+      if (next.mMin === prev.mMin && next.mMax === prev.mMax) return prev;
+      return next;
     });
+    previousMarginBounds.current = marginBounds;
   }, [marginBounds]);
 
   useEffect(() => {
