@@ -81,6 +81,7 @@ const App = () => {
   const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
+  const [lastFileName, setLastFileName] = useState('Dataset demo');
   const [filters, setFilters] = useState({
     years: [],
     businessLine: 'all',
@@ -128,6 +129,7 @@ const App = () => {
         setFilters({ years: [], businessLine: 'all' });
         setRawRecords(parsed);
         setDataSource('imported');
+        setLastFileName(file?.name || 'CSV importado');
       },
       error: (error) => {
         console.error('CSV parse error', error);
@@ -143,6 +145,7 @@ const App = () => {
     setRawRecords(demoRecords);
     setFilters({ years: [], businessLine: 'all' });
     setDataSource('demo');
+    setLastFileName('Dataset demo');
   };
 
   const totals = useMemo(() => {
@@ -534,15 +537,17 @@ const App = () => {
               );
             })}
           </nav>
-          <div className="mt-auto space-y-3">
-            <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-sm backdrop-blur">
-              <p className="text-[11px] uppercase text-white/60">Origen de datos</p>
-              <p className="font-semibold text-white">{dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}</p>
-              <p className="text-xs text-white/60 mt-1">10,741 registros procesados vía Web Worker.</p>
-            </div>
-            <div className="flex items-center gap-2 text-celeste-100 text-sm">
-              <ShieldCheck size={16} />
-              <span className="text-white">Procesamiento seguro y sin bloqueos</span>
+            <div className="mt-auto space-y-3">
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 text-sm backdrop-blur">
+                <p className="text-[11px] uppercase text-white/60">Origen de datos</p>
+                <p className="font-semibold text-white">{dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}</p>
+                <p className="text-xs text-white/60 mt-1">
+                  {formatNumber(recordCount, { maximumFractionDigits: 0 })} registros procesados vía Web Worker.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-celeste-100 text-sm">
+                <ShieldCheck size={16} />
+                <span className="text-white">Procesamiento seguro y sin bloqueos</span>
             </div>
           </div>
         </aside>
@@ -647,10 +652,13 @@ const App = () => {
                 </div>
                 <p className="text-sm text-slate-600 mb-4">Procesa en background y cambia instantáneamente entre demo y la base completa.</p>
                 <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-black text-white rounded-xl border border-black cursor-pointer shadow-sm hover:-translate-y-0.5 transition">
-                    <input type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
-                    <span className="text-sm font-medium">Seleccionar CSV</span>
-                  </label>
+                  <div className="space-y-1">
+                    <label className="inline-flex items-center gap-2 px-3 py-2 bg-black text-white rounded-xl border border-black cursor-pointer shadow-sm hover:-translate-y-0.5 transition">
+                      <input type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
+                      <span className="text-sm font-medium">Seleccionar CSV</span>
+                    </label>
+                    <p className="text-[11px] text-slate-500">Última carga: {lastFileName}</p>
+                  </div>
                   <button
                     type="button"
                     onClick={resetDemo}
@@ -658,9 +666,12 @@ const App = () => {
                   >
                     Volver a demo
                   </button>
+                  <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-700">
+                    Filas activas: {formatNumber(recordCount, { maximumFractionDigits: 0 })}
+                  </div>
                 </div>
                 <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                  Web Worker aislado evita bloqueos de UI al transformar las 10,741 filas. Bootstrap configurable mantiene la precisión.
+                  Web Worker aislado evita bloqueos de UI al transformar las {formatNumber(recordCount, { maximumFractionDigits: 0 })} filas activas. Bootstrap configurable mantiene la precisión.
                 </div>
                 <div className="mt-3 p-3 rounded-2xl bg-slate-900/5 border border-slate-200 text-xs text-slate-600 space-y-1">
                   <p className="font-semibold text-slate-900 text-sm">¿Cómo cargar la base de datos?</p>
