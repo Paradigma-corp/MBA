@@ -815,7 +815,7 @@ const App = () => {
                     onChange={(nextSet) => setFilters((prev) => ({ ...prev, vendedores: nextSet }))}
                     placeholder="Selecciona vendedores"
                   />
-                  <p className="text-xs text-slate-500">Búsqueda rápida (&lt;100 ms) con lista virtualizada y grupos por línea.</p>
+                  <p className="text-xs text-slate-500">Búsqueda rápida (&lt;100 ms) con lista completa y grupos por línea.</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
