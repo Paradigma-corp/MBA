@@ -74,11 +74,14 @@ const VendorMultiSelect = ({ options = [], valueSet, onChange, placeholder = 'Se
 
   const value = useMemo(() => options.filter((opt) => valueSet?.has(opt.value)), [options, valueSet]);
 
-  const menuPortalTarget = typeof document !== 'undefined' ? document.body : undefined;
-
   const handleChange = (selected) => {
-    const nextSet = new Set((selected ?? []).map((opt) => opt.value));
-    onChange(nextSet);
+    try {
+      const normalized = Array.isArray(selected) ? selected : selected ? [selected] : [];
+      const nextSet = new Set(normalized.map((opt) => opt.value).filter(Boolean));
+      onChange(nextSet);
+    } catch (error) {
+      console.error('Vendor filter update failed', error);
+    }
   };
 
   return (
@@ -112,8 +115,6 @@ const VendorMultiSelect = ({ options = [], valueSet, onChange, placeholder = 'Se
           valueContainer: (base) => ({ ...base, gap: 4, paddingLeft: 10 }),
           menu: (base) => ({ ...base, zIndex: 50 }),
         }}
-        menuPortalTarget={menuPortalTarget}
-        menuPosition="fixed"
         menuPlacement="auto"
         maxMenuHeight={320}
         components={{ MultiValueContainer, Input, Option }}
