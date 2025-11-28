@@ -9,6 +9,7 @@ const baseDemoRecords = [
     ingresos: 82000,
     costos: 61000,
     margen: 21000,
+    'Nuevo/Usado': 'Nuevo',
   },
   {
     Año: 2024,
@@ -20,6 +21,7 @@ const baseDemoRecords = [
     ingresos: 42000,
     costos: 32500,
     margen: 9500,
+    'Nuevo/Usado': 'Usado',
   },
   {
     Año: 2024,
@@ -31,6 +33,7 @@ const baseDemoRecords = [
     ingresos: 122000,
     costos: 91000,
     margen: 31000,
+    'Nuevo/Usado': 'Nuevo',
   },
   {
     Año: 2024,
@@ -42,6 +45,7 @@ const baseDemoRecords = [
     ingresos: 78000,
     costos: 59000,
     margen: 19000,
+    'Nuevo/Usado': 'Usado',
   },
   {
     Año: 2024,
@@ -53,6 +57,7 @@ const baseDemoRecords = [
     ingresos: 86000,
     costos: 64800,
     margen: 21200,
+    'Nuevo/Usado': 'Nuevo',
   },
 ];
 

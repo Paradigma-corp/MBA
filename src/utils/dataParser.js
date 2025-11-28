@@ -153,7 +153,15 @@ const BUSINESS_LINE_KEYS = [
 
 const YEAR_KEYS = ['año', 'ano', 'anio', 'year', 'periodo', 'período'];
 
-const CONDITION_KEYS = ['nuevo/usado', 'nuevo o usado', 'condición', 'condicion', 'estado unidad'];
+const CONDITION_KEYS = [
+  'nuevo/usado',
+  'nuevo / usado',
+  'nuevo usado',
+  'nuevo o usado',
+  'condición',
+  'condicion',
+  'estado unidad',
+];
 
 const SELLER_KEYS = ['nombrevendedor', 'vendedor', 'vendedor sap', 'seller', 'asesor'];
 const MODEL_KEYS = ['modelo', 'model', 'vehículo', 'vehiculo', 'vehículo sap', 'vehiculo sap'];
@@ -213,21 +221,33 @@ export const modelFromRecord = (record = {}) => {
   return undefined;
 };
 
+const normalizeConditionText = (text) => {
+  if (!text) return undefined;
+  if (/^nuev/i.test(text)) return 'Nuevo';
+  if (/^usad/i.test(text)) return 'Usado';
+  return text;
+};
+
 export const conditionFromRecord = (record = {}) => {
   const entries = Object.entries(record);
   const direct = textFromRecord(entries, 'nuevo/usado');
-  if (direct) {
-    if (/^nuev/i.test(direct)) return 'Nuevo';
-    if (/^usad/i.test(direct)) return 'Usado';
-    return direct;
-  }
+  const directNormalized = normalizeConditionText(direct);
+  if (directNormalized) return directNormalized;
 
   for (const lowerKey of CONDITION_KEYS) {
     const text = textFromRecord(entries, lowerKey);
-    if (!text) continue;
-    if (/^nuev/i.test(text)) return 'Nuevo';
-    if (/^usad/i.test(text)) return 'Usado';
-    return text;
+    const normalized = normalizeConditionText(text);
+    if (normalized) return normalized;
+  }
+
+  const fuzzy = entries.find(([key]) => {
+    const normalizedKey = key.toLowerCase().replace(/[^a-záéíóúüñ]+/g, ' ');
+    return normalizedKey.includes('nuevo') && normalizedKey.includes('usado');
+  });
+  if (fuzzy) {
+    const text = fuzzy[1]?.toString?.().trim?.();
+    const normalized = normalizeConditionText(text);
+    if (normalized) return normalized;
   }
 
   return undefined;
