@@ -36,12 +36,20 @@ import {
   transformToSalespeople,
 } from './utils/dataParser.js';
 import { useAnalyticsData } from './hooks/useAnalyticsData.js';
-import { defaultFilters, deriveFilterOptions } from './utils/filters.js';
+import {
+  clampMarginRange,
+  createDefaultFilters,
+  deriveFilterOptions,
+  deriveMarginBounds,
+  parseFiltersFromQuery,
+  serializeFiltersToQuery,
+} from './utils/filters.js';
 import { formatCurrency, formatMillionsUSD, formatNumber, formatPercent } from './utils/formatters.js';
 import { summarizeMarginsByLine } from './utils/marginStats.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
+import VendorMultiSelect from './components/ui/VendorMultiSelect.jsx';
 import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
 import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
@@ -73,12 +81,11 @@ const App = () => {
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
   const initialFilterOptions = useMemo(() => deriveFilterOptions(demoRecords), []);
-  const [filters, setFilters] = useState(() => ({
-    ...defaultFilters,
-    marginRange: [initialFilterOptions.marginRange.min, initialFilterOptions.marginRange.max],
-    sellers: [],
-    logScale: false,
-  }));
+  const [filterOptions, setFilterOptions] = useState(initialFilterOptions);
+  const [filters, setFilters] = useState(() =>
+    clampMarginRange(parseFiltersFromQuery(window.location.search, initialFilterOptions), initialFilterOptions.marginRange),
+  );
+  const [marginBounds, setMarginBounds] = useState(initialFilterOptions.marginRange);
   const [config, setConfig] = useState({
     rSquared: 0.85,
     betaIngreso: 0.75,
@@ -128,10 +135,8 @@ const App = () => {
       complete: (results) => {
         const parsed = results.data.filter((row) => row && Object.keys(row).length > 0);
         const options = deriveFilterOptions(parsed);
-        setFilters({
-          ...defaultFilters,
-          marginRange: [options.marginRange.min, options.marginRange.max],
-        });
+        setFilterOptions(options);
+        setFilters(createDefaultFilters(options));
         setRawRecords(parsed);
         setDataSource('imported');
       },
@@ -144,10 +149,8 @@ const App = () => {
   const resetDemo = () => {
     const options = deriveFilterOptions(demoRecords);
     setRawRecords(demoRecords);
-    setFilters({
-      ...defaultFilters,
-      marginRange: [options.marginRange.min, options.marginRange.max],
-    });
+    setFilterOptions(options);
+    setFilters(createDefaultFilters(options));
     setBootstrapIterations(INITIAL_BOOTSTRAP);
     setDataSource('demo');
   };
@@ -182,6 +185,33 @@ const App = () => {
       }),
     [normalizedFiltered, outlierRule, showOutliers],
   );
+
+  useEffect(() => {
+    const options = deriveFilterOptions(rawRecords);
+    setFilterOptions(options);
+  }, [rawRecords]);
+
+  useEffect(() => {
+    const bounds = deriveMarginBounds(rawRecords, filters);
+    setMarginBounds(bounds);
+  }, [filters.condicion, filters.vendedores, filters.years, rawRecords]);
+
+  useEffect(() => {
+    setFilters((prev) => {
+      const clamped = clampMarginRange(prev, marginBounds);
+      if (clamped.mMin === prev.mMin && clamped.mMax === prev.mMax) return prev;
+      return clamped;
+    });
+  }, [marginBounds]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const query = serializeFiltersToQuery(filters);
+      const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState(null, '', nextUrl);
+    }, 240);
+    return () => clearTimeout(timer);
+  }, [filters]);
 
   const APA_FOOTER =
     'Nota. Bigotes = percentiles 10 y 90; banda = IC95% bootstrap (B=2000) de la mediana. Fuente: Divemotor (panel interno).';
@@ -302,8 +332,12 @@ const App = () => {
     image.src = url;
   };
 
-  const filterOptions = useMemo(() => deriveFilterOptions(rawRecords), [rawRecords]);
-  const marginRange = filters.marginRange ?? [filterOptions.marginRange.min, filterOptions.marginRange.max];
+  const marginRange = [filters.mMin, filters.mMax];
+  const sliderStep = useMemo(() => {
+    const spread = marginBounds.max - marginBounds.min;
+    if (!Number.isFinite(spread) || spread === 0) return 1;
+    return Math.max(spread / 200, 0.01);
+  }, [marginBounds]);
 
   const modalDetails = useMemo(
     () => ({
@@ -680,52 +714,21 @@ const App = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() =>
-                    setFilters({
-                      ...defaultFilters,
-                      marginRange: [filterOptions.marginRange.min, filterOptions.marginRange.max],
-                    })
-                  }
+                  onClick={() => setFilters(createDefaultFilters(filterOptions))}
                   className="text-sm text-celeste-700 hover:text-celeste-800"
                 >
                   Limpiar filtros
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="space-y-3">
-                  <label className="text-xs uppercase text-slate-500">Nuevo / Usado</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[{ label: 'Todos', value: 'all' }, ...filterOptions.conditions.map((condition) => ({
-                      label: condition.charAt(0).toUpperCase() + condition.slice(1),
-                      value: condition,
-                    }))].map((option) => {
-                      const active = filters.condition === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setFilters((prev) => ({ ...prev, condition: option.value }))}
-                          className={`px-3 py-2 rounded-xl border text-sm transition ${
-                            active
-                              ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-slate-500">Alterna por condición comercial sin perder el resto del dataset.</p>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-xs uppercase text-slate-500">Año (selección múltiple)</label>
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="space-y-3 lg:col-span-2">
+                  <label className="text-xs uppercase text-slate-500">Año</label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => setFilters((prev) => ({ ...prev, years: [] }))}
+                      onClick={() => setFilters((prev) => ({ ...prev, years: new Set() }))}
                       className={`px-3 py-2 rounded-xl border text-sm transition ${
-                        filters.years.length === 0
+                        filters.years.size === 0
                           ? 'bg-celeste-50 border-celeste-200 text-celeste-800'
                           : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
                       }`}
@@ -733,16 +736,20 @@ const App = () => {
                       Todos los años
                     </button>
                     {filterOptions.years.map((year) => {
-                      const active = filters.years.includes(year);
+                      const active = filters.years.has(year);
                       return (
                         <button
                           key={year}
                           type="button"
                           onClick={() =>
                             setFilters((prev) => {
-                              const exists = prev.years.includes(year);
-                              const nextYears = exists ? prev.years.filter((y) => y !== year) : [...prev.years, year];
-                              return { ...prev, years: nextYears.sort((a, b) => a - b) };
+                              const nextYears = new Set(prev.years);
+                              if (nextYears.has(year)) {
+                                nextYears.delete(year);
+                              } else {
+                                nextYears.add(year);
+                              }
+                              return { ...prev, years: nextYears };
                             })
                           }
                           className={`px-3 py-2 rounded-xl border text-sm transition ${
@@ -756,120 +763,144 @@ const App = () => {
                       );
                     })}
                   </div>
-                  <p className="text-xs text-slate-500">Puedes combinar varios años para un análisis acumulado.</p>
+                  <p className="text-xs text-slate-500">Combina varios años (2022–2025) o usa “Todos los años”.</p>
                 </div>
                 <div className="space-y-3">
-                  <label className="text-xs uppercase text-slate-500">Vendedor (selección múltiple)</label>
+                  <label className="text-xs uppercase text-slate-500">Nuevo / Usado</label>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFilters((prev) => ({ ...prev, sellers: [] }))}
-                      className={`px-3 py-2 rounded-xl border text-sm transition ${
-                        filters.sellers.length === 0
-                          ? 'bg-celeste-50 border-celeste-200 text-celeste-800'
-                          : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
-                      }`}
-                    >
-                      Todos los vendedores
-                    </button>
-                    {filterOptions.sellers.map((seller) => {
-                      const active = filters.sellers.includes(seller);
+                    {filterOptions.conditions.map((condition) => {
+                      const active = filters.condicion === condition;
                       return (
                         <button
-                          key={seller}
+                          key={condition}
                           type="button"
-                          onClick={() =>
-                            setFilters((prev) => {
-                              const exists = prev.sellers.includes(seller);
-                              const next = exists ? prev.sellers.filter((s) => s !== seller) : [...prev.sellers, seller];
-                              return { ...prev, sellers: next };
-                            })
-                          }
+                          onClick={() => setFilters((prev) => ({ ...prev, condicion: condition }))}
                           className={`px-3 py-2 rounded-xl border text-sm transition ${
                             active
                               ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
                               : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
                           }`}
                         >
-                          {seller}
+                          {condition}
                         </button>
                       );
                     })}
                   </div>
-                  <p className="text-xs text-slate-500">Activa drill-down por asesor comercial para el boxplot.</p>
+                  <p className="text-xs text-slate-500">La máscara única aplica al boxplot, dispersión y KPIs.</p>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3 lg:col-span-2">
+                  <VendorMultiSelect
+                    options={filterOptions.sellers}
+                    valueSet={filters.vendedores}
+                    onChange={(nextSet) => setFilters((prev) => ({ ...prev, vendedores: nextSet }))}
+                    placeholder="Selecciona vendedores"
+                  />
+                  <p className="text-xs text-slate-500">Búsqueda rápida (&lt;100 ms) con lista virtualizada y grupos por línea.</p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="space-y-2 lg:col-span-2">
                   <label className="text-xs uppercase text-slate-500">Rango de margen (slider doble)</label>
                   <div className="flex items-center gap-3">
                     <input
                       type="range"
-                      min={filterOptions.marginRange.min}
-                      max={filterOptions.marginRange.max}
+                      min={marginBounds.min}
+                      max={marginBounds.max}
+                      step={sliderStep}
                       value={marginRange[0]}
                       onChange={(e) => {
                         const next = Number(e.target.value);
                         setFilters((prev) => ({
                           ...prev,
-                          marginRange: [Math.min(next, marginRange[1]), marginRange[1]],
+                          mMin: Math.min(next, prev.mMax),
                         }));
                       }}
                       className="flex-1"
                     />
                     <input
                       type="range"
-                      min={filterOptions.marginRange.min}
-                      max={filterOptions.marginRange.max}
+                      min={marginBounds.min}
+                      max={marginBounds.max}
+                      step={sliderStep}
                       value={marginRange[1]}
                       onChange={(e) => {
                         const next = Number(e.target.value);
                         setFilters((prev) => ({
                           ...prev,
-                          marginRange: [marginRange[0], Math.max(next, marginRange[0])],
+                          mMax: Math.max(next, prev.mMin),
                         }));
                       }}
                       className="flex-1"
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span>Mín: {formatCurrency(marginRange[0])}</span>
-                    <span>Máx: {formatCurrency(marginRange[1])}</span>
+                    <span>Min: {formatCurrency(Math.max(marginRange[0], marginBounds.min))}</span>
+                    <span>Max: {formatCurrency(Math.min(marginRange[1], marginBounds.max))}</span>
                   </div>
-                  <p className="text-xs text-slate-500">Arrastra los extremos para excluir márgenes atípicos antes del cálculo.</p>
+                  <p className="text-xs text-slate-500">
+                    Al cambiar año/condición se recalculan los límites reales y se hace clamp automático.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase text-slate-500">Preferencias</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={filters.logScale}
+                      onChange={(e) => setFilters((prev) => ({ ...prev, logScale: e.target.checked }))}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    <span className="text-sm text-slate-700">Escala log en boxplot</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Se aplica solo al gráfico de márgenes.</p>
                 </div>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={filters.logScale}
-                    onChange={(e) => setFilters((prev) => ({ ...prev, logScale: e.target.checked }))}
-                    className="h-4 w-4 rounded border-slate-300"
-                  />
-                  Escala log en boxplot
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  Útil para márgenes con órdenes de magnitud distintos; se aplica solo al gráfico.
-                </p>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
                   <BarChart3 size={12} /> {filteredRecords.length.toLocaleString()} registros filtrados
                 </span>
-                {filters.years.length > 0 && (
-                  <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
-                    Años {filters.years.join(', ')}
-                  </span>
+                {filters.years.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, years: new Set() }))}
+                    className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100 hover:bg-celeste-100"
+                  >
+                    Años {Array.from(filters.years).sort().join(', ')} ✕
+                  </button>
                 )}
-                {filters.condition !== 'all' && (
-                  <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
-                    {filters.condition}
-                  </span>
+                {filters.condicion !== 'Todos' && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, condicion: 'Todos' }))}
+                    className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100 hover:bg-celeste-100"
+                  >
+                    {filters.condicion} ✕
+                  </button>
                 )}
-                <span className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] border border-slate-200">
-                  Márgenes {formatCurrency(marginRange[0])} – {formatCurrency(marginRange[1])}
-                </span>
+                {filters.vendedores.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, vendedores: new Set() }))}
+                    className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100 hover:bg-celeste-100"
+                  >
+                    Vendedores ({filters.vendedores.size}) ✕
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFilters((prev) => ({ ...prev, mMin: marginBounds.min, mMax: marginBounds.max }))}
+                  className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] border border-slate-200 hover:bg-slate-100"
+                >
+                  Márgenes {formatCurrency(marginRange[0])} – {formatCurrency(marginRange[1])} ✕
+                </button>
               </div>
             </div>
+
+            {filteredRecords.length === 0 && (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                Sin datos bajo estos filtros.
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {[{
