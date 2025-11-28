@@ -197,17 +197,32 @@ const App = () => {
     setMarginBounds(bounds);
   }, [filters.condicion, filters.vendedores, filters.years, rawRecords]);
 
+  const setEquals = (a = new Set(), b = new Set()) => {
+    if (a.size !== b.size) return false;
+    for (const value of a) {
+      if (!b.has(value)) return false;
+    }
+    return true;
+  };
+
   useEffect(() => {
     setFilters((prev) => {
       const prevBounds = previousMarginBounds.current;
       const followsPrevBounds = prevBounds && prev.mMin === prevBounds.min && prev.mMax === prevBounds.max;
+      const criteriaChanged =
+        prev.condicion !== filters.condicion ||
+        !setEquals(prev.years, filters.years) ||
+        !setEquals(prev.vendedores, filters.vendedores);
       const clamped = clampMarginRange(prev, marginBounds);
-      const next = followsPrevBounds ? { ...prev, mMin: marginBounds.min, mMax: marginBounds.max } : clamped;
+      const next =
+        followsPrevBounds || criteriaChanged
+          ? { ...prev, mMin: marginBounds.min, mMax: marginBounds.max }
+          : clamped;
       if (next.mMin === prev.mMin && next.mMax === prev.mMax) return prev;
       return next;
     });
     previousMarginBounds.current = marginBounds;
-  }, [marginBounds]);
+  }, [filters.condicion, filters.vendedores, filters.years, marginBounds]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
