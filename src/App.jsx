@@ -31,7 +31,7 @@ import { performBootstrap } from './utils/bootstrap.js';
 import {
   businessLineFromRecord,
   computeCorrelations,
-  normalizeFinancialRecord,
+  computeStatSummary,
   transformToCategories,
   transformToSalespeople,
   yearFromRecord,
@@ -80,6 +80,7 @@ const App = () => {
   });
   const [salespeople, setSalespeople] = useState(transformToSalespeople(demoRecords));
   const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
+  const [statSummary, setStatSummary] = useState(() => computeStatSummary(demoRecords));
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
   const [workerReady, setWorkerReady] = useState(false);
@@ -95,10 +96,16 @@ const App = () => {
   useEffect(() => {
     const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
     worker.onmessage = (event) => {
-      const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
+      const {
+        categories: newCategories,
+        salespeople: newSalespeople,
+        correlations: newCorrelations,
+        statSummary: newStatSummary,
+      } = event.data;
       setCategories(newCategories);
       setSalespeople(newSalespeople);
       setCorrelations(newCorrelations);
+      if (newStatSummary) setStatSummary(newStatSummary);
     };
     workerRef.current = worker;
     setWorkerReady(true);
@@ -119,11 +126,15 @@ const App = () => {
 
   useEffect(() => {
     if (!workerReady || !workerRef.current) return;
-    workerRef.current.postMessage({
-      records: filteredRecords,
-      iterations: bootstrapIterations,
-      confidenceLevel: 0.95,
-    });
+    const timer = setTimeout(() => {
+      workerRef.current.postMessage({
+        records: filteredRecords,
+        iterations: bootstrapIterations,
+        confidenceLevel: 0.95,
+      });
+    }, 80);
+
+    return () => clearTimeout(timer);
   }, [filteredRecords, bootstrapIterations, workerReady]);
 
   const handleFile = (file) => {
@@ -149,6 +160,7 @@ const App = () => {
     setCategories(performBootstrap(transformed, bootstrapIterations));
     setSalespeople(transformToSalespeople(demoRecords));
     setCorrelations(computeCorrelations(demoRecords));
+    setStatSummary(computeStatSummary(demoRecords));
     setRawRecords(demoRecords);
     setFilters({ years: [], businessLine: 'all' });
     setDataSource('demo');
@@ -174,95 +186,6 @@ const App = () => {
     }),
     [categories, salespeople, totals.marginPct],
   );
-
-  const statSummary = useMemo(() => {
-    const marginPercents = [];
-    const ingresos = [];
-    const costos = [];
-
-    filteredRecords.forEach((item) => {
-      const normalized = normalizeFinancialRecord(item);
-      const ingreso = normalized.ingresos;
-      const costo = normalized.costos;
-      const margen = normalized.margen;
-
-      if (Number.isFinite(ingreso)) ingresos.push(ingreso);
-      if (Number.isFinite(costo)) costos.push(costo);
-      if (Number.isFinite(ingreso) && ingreso !== 0 && Number.isFinite(margen)) {
-        marginPercents.push((margen / ingreso) * 100);
-      }
-    });
-
-    const calc = (values) => {
-      const n = values.length;
-      if (!n) {
-        return {
-          mean: 0,
-          median: 0,
-          mode: 0,
-          stdSample: 0,
-          varianceSample: 0,
-          stderr: 0,
-          skewness: 0,
-          kurtosis: 0,
-          min: 0,
-          max: 0,
-        };
-      }
-
-      const sorted = [...values].sort((a, b) => a - b);
-      const meanValue = values.reduce((acc, value) => acc + value, 0) / n;
-      const varianceSample = n > 1 ? values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / (n - 1) : 0;
-      const stdSample = Math.sqrt(varianceSample);
-      const stderr = n > 0 ? stdSample / Math.sqrt(n) : 0;
-      const median = n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
-
-      const frequency = new Map();
-      let mode = sorted[0];
-      let maxCount = 0;
-      sorted.forEach((value) => {
-        const count = (frequency.get(value) || 0) + 1;
-        frequency.set(value, count);
-        if (count > maxCount) {
-          maxCount = count;
-          mode = value;
-        }
-      });
-
-      const centered = values.map((value) => value - meanValue);
-      const denom = stdSample > 0 ? stdSample ** 3 : 0;
-      const skewness = n > 2 && denom
-        ? (n / ((n - 1) * (n - 2))) * (centered.reduce((acc, value) => acc + value ** 3, 0) / denom)
-        : 0;
-      const kurtosis =
-        n > 3 && stdSample > 0
-          ?
-            (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3)) *
-              (centered.reduce((acc, value) => acc + value ** 4, 0) / (stdSample ** 4)) -
-            (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
-          : 0;
-
-      return {
-        mean: meanValue,
-        median,
-        mode,
-        stdSample,
-        varianceSample,
-        stderr,
-        skewness,
-        kurtosis,
-        min: Math.min(...values),
-        max: Math.max(...values),
-      };
-    };
-
-    return {
-      marginPct: calc(marginPercents),
-      ingresos: calc(ingresos),
-      costos: calc(costos),
-      muestras: marginPercents.length,
-    };
-  }, [filteredRecords]);
 
   const boxPlotData = useMemo(() => {
     const grouped = filteredRecords.reduce((acc, record) => {
