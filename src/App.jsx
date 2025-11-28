@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   Layers,
   LineChart,
-  Phone,
   Percent,
   RefreshCw,
   ShieldCheck,
@@ -312,6 +311,7 @@ const App = () => {
   };
 
   const formatPercent = (value) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : '—');
+  const recordCount = rawRecords.length;
 
   const modalDetails = useMemo(
     () => ({
@@ -506,14 +506,13 @@ const App = () => {
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-2"><MapPin size={16} className="text-black" /> Estamos en todo el Perú</span>
-            <span className="hidden md:inline-flex items-center gap-2"><Phone size={16} className="text-black" /> 0801-00008</span>
+            <span className="flex items-center gap-2"><MapPin size={16} className="text-black" /> Operación nacional · panel interno de analítica</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
-              Datos {dataSource === 'demo' ? 'demo' : 'CSV importado'}
+              Fuente de datos: {dataSource === 'demo' ? 'demo de referencia' : 'CSV cargado'}
             </span>
-            <span className="text-xs text-slate-500">Procesando 10,741 filas sin muestreo</span>
+            <span className="text-xs text-slate-500">Registros actuales: {formatNumber(recordCount, { maximumFractionDigits: 0 })}</span>
           </div>
         </div>
       </div>
