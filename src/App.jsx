@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import {
   Activity,
@@ -92,16 +92,22 @@ const App = () => {
   const workerRef = useRef(null);
 
   useEffect(() => {
-    const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = (event) => {
-      const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
-      setCategories(newCategories);
-      setSalespeople(newSalespeople);
-      setCorrelations(newCorrelations);
-    };
-    workerRef.current = worker;
-    setWorkerReady(true);
-    return () => worker.terminate();
+    try {
+      const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
+      worker.onmessage = (event) => {
+        const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
+        setCategories(newCategories);
+        setSalespeople(newSalespeople);
+        setCorrelations(newCorrelations);
+      };
+      workerRef.current = worker;
+      setWorkerReady(true);
+      return () => worker.terminate();
+    } catch (error) {
+      console.error('No se pudo iniciar el worker, se usará cálculo en el hilo principal.', error);
+      setWorkerReady(false);
+      return undefined;
+    }
   }, []);
 
   const businessLineOf = (record) => businessLineFromRecord(record);
@@ -116,23 +122,40 @@ const App = () => {
     });
   }, [filters, rawRecords]);
 
+  const runInlineCalculations = useCallback(
+    (records) => {
+      const categoriesRaw = transformToCategories(records);
+      const bootstrapped = performBootstrap(categoriesRaw, bootstrapIterations, 0.95);
+      setCategories(bootstrapped);
+      setSalespeople(transformToSalespeople(records));
+      setCorrelations(computeCorrelations(records));
+    },
+    [bootstrapIterations],
+  );
+
   useEffect(() => {
-    if (!workerReady || !workerRef.current) return;
-    workerRef.current.postMessage({
-      records: filteredRecords,
-      iterations: bootstrapIterations,
-      confidenceLevel: 0.95,
-    });
-  }, [filteredRecords, bootstrapIterations, workerReady]);
+    if (workerReady && workerRef.current) {
+      workerRef.current.postMessage({
+        records: filteredRecords,
+        iterations: bootstrapIterations,
+        confidenceLevel: 0.95,
+      });
+      return;
+    }
+
+    // Fallback al hilo principal si el worker no está disponible
+    runInlineCalculations(filteredRecords);
+  }, [filteredRecords, bootstrapIterations, workerReady, runInlineCalculations]);
 
   const handleFile = (file) => {
-    if (!workerRef.current) return;
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsed = results.data.filter((row) => row['Nombre segmentación']);
+        const parsed = Array.isArray(results.data)
+          ? results.data.filter((row) => Object.keys(row || {}).length > 0)
+          : [];
         setFilters({ years: [], businessLine: 'all' });
         setRawRecords(parsed);
         setDataSource('imported');
