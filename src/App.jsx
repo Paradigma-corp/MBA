@@ -91,7 +91,7 @@ const App = () => {
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
   const [showOutliers, setShowOutliers] = useState(true);
-  const [outlierRule, setOutlierRule] = useState('tukey');
+  const [outlierRule, setOutlierRule] = useState('pRange');
   const [reviewQueue, setReviewQueue] = useState([]);
   const chartRef = useRef(null);
 
@@ -174,8 +174,13 @@ const App = () => {
   );
 
   const marginSummaries = useMemo(
-    () => summarizeMarginsByLine(normalizedFiltered, { bootstrapSamples: 2000, outlierRule }),
-    [normalizedFiltered, outlierRule],
+    () =>
+      summarizeMarginsByLine(normalizedFiltered, {
+        bootstrapSamples: 2000,
+        outlierRule,
+        includeOutliers: showOutliers,
+      }),
+    [normalizedFiltered, outlierRule, showOutliers],
   );
 
   const APA_FOOTER =
@@ -245,7 +250,7 @@ const App = () => {
         item.pRange,
         item.mad,
         item.cvRobust,
-        item.outlierPct,
+        item.outlierPctVisible,
         item.ciLower,
         item.ciUpper,
       ].join(','),
@@ -1169,6 +1174,9 @@ const App = () => {
                       );
                     })}
                   </div>
+                  <span className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700">
+                    Regla: {outlierRule === 'pRange' ? 'P10–P90' : 'Tukey 1.5·IQR'}
+                  </span>
                   <button
                     type="button"
                     onClick={exportPng}
@@ -1242,7 +1250,13 @@ const App = () => {
                       </div>
                       <div className="p-2 rounded-lg bg-white border border-slate-200">
                         <p className="text-[10px] uppercase text-slate-500">% outliers</p>
-                        <p className="font-semibold text-slate-900">{formatPercent(item.outlierPct / 100)}</p>
+                        {showOutliers ? (
+                          <p className="font-semibold text-slate-900">
+                            {formatPercent(item.outlierPctVisible)} ({item.outlierCountVisible}/{item.n})
+                          </p>
+                        ) : (
+                          <p className="font-semibold text-slate-900">Ocultos</p>
+                        )}
                       </div>
                       <div className="p-2 rounded-lg bg-white border border-slate-200">
                         <p className="text-[10px] uppercase text-slate-500">IC95% mediana</p>

@@ -41,7 +41,10 @@ const bootstrapMedianCI = (values = [], samples = 2000, confidence = 0.95) => {
   return { lower, upper, samples: sorted };
 };
 
-export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000, outlierRule = 'tukey' } = {}) => {
+export const summarizeMarginsByLine = (
+  records = [],
+  { bootstrapSamples = 2000, outlierRule = 'pRange', includeOutliers = true } = {},
+) => {
   const groups = new Map();
 
   records.forEach((record) => {
@@ -84,7 +87,11 @@ export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000, 
       const outliersTukey = detail.filter((item) => item.margin < lowerFence || item.margin > upperFence);
       const outliersPRange = detail.filter((item) => item.margin < p10 || item.margin > p90);
       const activeOutliers = outlierRule === 'pRange' ? outliersPRange : outliersTukey;
-      const outlierPct = n ? (activeOutliers.length / n) * 100 : 0;
+      const outlierCount = activeOutliers.length;
+      const outlierPct = n ? (outlierCount / n) * 100 : 0;
+      const visibleOutliers = includeOutliers ? activeOutliers : [];
+      const visibleOutlierCount = includeOutliers ? outlierCount : 0;
+      const visibleOutlierPct = includeOutliers ? outlierPct : 0;
       const { lower: ciLower, upper: ciUpper } = bootstrapMedianCI(margins, bootstrapSamples, 0.95);
 
       return {
@@ -99,8 +106,11 @@ export const summarizeMarginsByLine = (records = [], { bootstrapSamples = 2000, 
         pRange: p90 - p10,
         mad: madValue,
         cvRobust,
+        outlierCount,
         outlierPct,
-        outliers: activeOutliers,
+        outlierCountVisible: visibleOutlierCount,
+        outlierPctVisible: visibleOutlierPct,
+        outliers: visibleOutliers,
         outliersTukey,
         outliersPRange,
         lowerFence,

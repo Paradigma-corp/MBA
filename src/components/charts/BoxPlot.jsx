@@ -260,7 +260,10 @@ const BoxPlot = forwardRef(
               N: {formatNumber(tooltip.item.n)} · Mediana: {formatCurrency(tooltip.item.median)}
             </p>
             <p className="text-slate-600">IQR: {formatCurrency(tooltip.item.q1)} – {formatCurrency(tooltip.item.q3)}</p>
-            <p className="text-slate-600">% outliers: {formatPercent(tooltip.item.outlierPct / 100)}</p>
+            <p className="text-slate-600">
+              % outliers: {formatPercent(tooltip.item.outlierPctVisible ?? tooltip.item.outlierPct ?? 0)} (
+              {(tooltip.item.outlierCountVisible ?? tooltip.item.outlierCount ?? 0)}/{tooltip.item.n})
+            </p>
           </div>
         )}
 
