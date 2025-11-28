@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import {
   Activity,
@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   Layers,
   LineChart,
-  Phone,
   Percent,
   RefreshCw,
   ShieldCheck,
@@ -29,13 +28,15 @@ import WaterfallCalculator from './components/calculators/WaterfallCalculator.js
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
 import {
-  businessLineFromRecord,
   computeCorrelations,
-  normalizeFinancialRecord,
+  computeStatSummary,
+  normalizeRecords,
   transformToCategories,
   transformToSalespeople,
-  yearFromRecord,
 } from './utils/dataParser.js';
+import { useAnalyticsData } from './hooks/useAnalyticsData.js';
+import { defaultFilters, deriveFilterOptions } from './utils/filters.js';
+import { formatCurrency, formatMillionsUSD, formatNumber, formatPercent } from './utils/formatters.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
@@ -67,74 +68,52 @@ const heroSlides = [
 ];
 
 const App = () => {
+  const [rawRecords, setRawRecords] = useState(demoRecords);
+  const [dataSource, setDataSource] = useState('demo');
+  const [filters, setFilters] = useState(() => ({ ...defaultFilters }));
   const [config, setConfig] = useState({
     rSquared: 0.85,
     betaIngreso: 0.75,
     betaCosto: -0.65,
     pearsonCoef: 0.92,
   });
-  const [bootstrapIterations, setBootstrapIterations] = useState(2000);
-  const [categories, setCategories] = useState(() => {
-    const transformed = transformToCategories(demoRecords);
-    return performBootstrap(transformed, 5000);
-  });
-  const [salespeople, setSalespeople] = useState(transformToSalespeople(demoRecords));
-  const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
-  const [rawRecords, setRawRecords] = useState(demoRecords);
-  const [dataSource, setDataSource] = useState('demo');
-  const [workerReady, setWorkerReady] = useState(false);
-  const [filters, setFilters] = useState({
-    years: [],
-    businessLine: 'all',
-  });
+  const INITIAL_BOOTSTRAP = 5000;
+  const [bootstrapIterations, setBootstrapIterations] = useState(INITIAL_BOOTSTRAP);
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
-  const workerRef = useRef(null);
 
-  useEffect(() => {
-    const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = (event) => {
-      const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
-      setCategories(newCategories);
-      setSalespeople(newSalespeople);
-      setCorrelations(newCorrelations);
-    };
-    workerRef.current = worker;
-    setWorkerReady(true);
-    return () => worker.terminate();
-  }, []);
+  const normalizedDemo = useMemo(() => normalizeRecords(demoRecords), []);
+  const demoCategories = useMemo(
+    () => transformToCategories(normalizedDemo, { normalized: true }),
+    [normalizedDemo],
+  );
+  const initialData = useMemo(
+    () => ({
+      categories: performBootstrap(demoCategories, INITIAL_BOOTSTRAP),
+      salespeople: transformToSalespeople(normalizedDemo, { normalized: true }),
+      correlations: computeCorrelations(normalizedDemo, { normalized: true }),
+      statSummary: computeStatSummary(normalizedDemo, { normalized: true }),
+    }),
+    [demoCategories, normalizedDemo],
+  );
 
-  const businessLineOf = (record) => businessLineFromRecord(record);
-
-  const filteredRecords = useMemo(() => {
-    return rawRecords.filter((record) => {
-      const year = yearFromRecord(record);
-      const matchYear = filters.years.length === 0 || (year !== undefined && filters.years.includes(year));
-      const line = businessLineOf(record);
-      const matchBusiness = filters.businessLine === 'all' || (line && line === filters.businessLine);
-      return matchYear && matchBusiness;
-    });
-  }, [filters, rawRecords]);
-
-  useEffect(() => {
-    if (!workerReady || !workerRef.current) return;
-    workerRef.current.postMessage({
-      records: filteredRecords,
-      iterations: bootstrapIterations,
-      confidenceLevel: 0.95,
-    });
-  }, [filteredRecords, bootstrapIterations, workerReady]);
+  const { categories, salespeople, correlations, statSummary, filteredRecords } = useAnalyticsData({
+    rawRecords,
+    filters,
+    iterations: bootstrapIterations,
+    confidenceLevel: 0.95,
+    initialData,
+  });
 
   const handleFile = (file) => {
-    if (!workerRef.current) return;
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
         const parsed = results.data.filter((row) => row['Nombre segmentación']);
-        setFilters({ years: [], businessLine: 'all' });
+        setFilters({ ...defaultFilters });
         setRawRecords(parsed);
         setDataSource('imported');
       },
@@ -145,12 +124,9 @@ const App = () => {
   };
 
   const resetDemo = () => {
-    const transformed = transformToCategories(demoRecords);
-    setCategories(performBootstrap(transformed, bootstrapIterations));
-    setSalespeople(transformToSalespeople(demoRecords));
-    setCorrelations(computeCorrelations(demoRecords));
     setRawRecords(demoRecords);
-    setFilters({ years: [], businessLine: 'all' });
+    setFilters({ ...defaultFilters });
+    setBootstrapIterations(INITIAL_BOOTSTRAP);
     setDataSource('demo');
   };
 
@@ -175,95 +151,6 @@ const App = () => {
     [categories, salespeople, totals.marginPct],
   );
 
-  const statSummary = useMemo(() => {
-    const marginPercents = [];
-    const ingresos = [];
-    const costos = [];
-
-    filteredRecords.forEach((item) => {
-      const normalized = normalizeFinancialRecord(item);
-      const ingreso = normalized.ingresos;
-      const costo = normalized.costos;
-      const margen = normalized.margen;
-
-      if (Number.isFinite(ingreso)) ingresos.push(ingreso);
-      if (Number.isFinite(costo)) costos.push(costo);
-      if (Number.isFinite(ingreso) && ingreso !== 0 && Number.isFinite(margen)) {
-        marginPercents.push((margen / ingreso) * 100);
-      }
-    });
-
-    const calc = (values) => {
-      const n = values.length;
-      if (!n) {
-        return {
-          mean: 0,
-          median: 0,
-          mode: 0,
-          stdSample: 0,
-          varianceSample: 0,
-          stderr: 0,
-          skewness: 0,
-          kurtosis: 0,
-          min: 0,
-          max: 0,
-        };
-      }
-
-      const sorted = [...values].sort((a, b) => a - b);
-      const meanValue = values.reduce((acc, value) => acc + value, 0) / n;
-      const varianceSample = n > 1 ? values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / (n - 1) : 0;
-      const stdSample = Math.sqrt(varianceSample);
-      const stderr = n > 0 ? stdSample / Math.sqrt(n) : 0;
-      const median = n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
-
-      const frequency = new Map();
-      let mode = sorted[0];
-      let maxCount = 0;
-      sorted.forEach((value) => {
-        const count = (frequency.get(value) || 0) + 1;
-        frequency.set(value, count);
-        if (count > maxCount) {
-          maxCount = count;
-          mode = value;
-        }
-      });
-
-      const centered = values.map((value) => value - meanValue);
-      const denom = stdSample > 0 ? stdSample ** 3 : 0;
-      const skewness = n > 2 && denom
-        ? (n / ((n - 1) * (n - 2))) * (centered.reduce((acc, value) => acc + value ** 3, 0) / denom)
-        : 0;
-      const kurtosis =
-        n > 3 && stdSample > 0
-          ?
-            (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3)) *
-              (centered.reduce((acc, value) => acc + value ** 4, 0) / (stdSample ** 4)) -
-            (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
-          : 0;
-
-      return {
-        mean: meanValue,
-        median,
-        mode,
-        stdSample,
-        varianceSample,
-        stderr,
-        skewness,
-        kurtosis,
-        min: Math.min(...values),
-        max: Math.max(...values),
-      };
-    };
-
-    return {
-      marginPct: calc(marginPercents),
-      ingresos: calc(ingresos),
-      costos: calc(costos),
-      muestras: marginPercents.length,
-    };
-  }, [filteredRecords]);
-
   const boxPlotData = useMemo(() => {
     const grouped = filteredRecords.reduce((acc, record) => {
       const name = record['Nombre segmentación'] || record.segmentacionIGD;
@@ -278,40 +165,7 @@ const App = () => {
     return Object.entries(grouped).map(([name, margins]) => ({ name, margins }));
   }, [filteredRecords]);
 
-  const filterOptions = useMemo(() => {
-    const years = Array.from(
-      new Set(
-        rawRecords
-          .map((item) => yearFromRecord(item))
-          .filter((year) => year !== undefined && year !== null && !Number.isNaN(year)),
-      ),
-    ).sort((a, b) => a - b);
-    const businessLines = Array.from(
-      new Set(
-        rawRecords
-          .map((item) => businessLineOf(item))
-          .filter((value) => value !== undefined && value !== null)
-          .map((value) => value.toString()),
-      ),
-    )
-      .filter((value) => value)
-      .sort((a, b) => a.localeCompare(b));
-    return { years, businessLines };
-  }, [rawRecords]);
-
-  const formatNumber = (value, options = {}) =>
-    Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
-
-  const formatCurrency = (value) =>
-    Number.isFinite(value) ? `$${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : '—';
-
-  const formatMillionsUSD = (value) => {
-    if (!Number.isFinite(value)) return '—';
-    const millions = value / 1_000_000;
-    return `$${millions.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
-  };
-
-  const formatPercent = (value) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : '—');
+  const filterOptions = useMemo(() => deriveFilterOptions(rawRecords), [rawRecords]);
 
   const modalDetails = useMemo(
     () => ({
@@ -507,7 +361,6 @@ const App = () => {
         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-2"><MapPin size={16} className="text-black" /> Estamos en todo el Perú</span>
-            <span className="hidden md:inline-flex items-center gap-2"><Phone size={16} className="text-black" /> 0801-00008</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
