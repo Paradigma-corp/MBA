@@ -55,6 +55,7 @@ import RegressionComparisonModule from './components/analytics/RegressionCompari
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
 import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
 import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
+import MonteCarloMetaPanel from './components/analytics/MonteCarloMetaPanel.jsx';
 
 const heroSlides = [
   {
@@ -646,6 +647,17 @@ const App = () => {
                 }`}
               >
                 Optimizador de mix
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePage('smc')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'smc'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                SMC por meta
               </button>
             </div>
 
@@ -1369,6 +1381,8 @@ const App = () => {
             <CountingExposurePanel records={filteredRecords} />
           ) : activePage === 'mix' ? (
             <MixOptimizerPanel records={filteredRecords} />
+          ) : activePage === 'smc' ? (
+            <MonteCarloMetaPanel records={filteredRecords} />
           ) : (
             <FomForecastPanel records={filteredRecords} />
           )}
