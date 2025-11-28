@@ -136,6 +136,8 @@ const App = () => {
       complete: (results) => {
         const parsed = results.data.filter((row) => row && Object.keys(row).length > 0);
         const options = deriveFilterOptions(parsed);
+        setMarginBounds(options.marginRange);
+        previousMarginBounds.current = options.marginRange;
         setFilterOptions(options);
         setFilters(createDefaultFilters(options));
         setRawRecords(parsed);
@@ -149,6 +151,8 @@ const App = () => {
 
   const resetDemo = () => {
     const options = deriveFilterOptions(demoRecords);
+    setMarginBounds(options.marginRange);
+    previousMarginBounds.current = options.marginRange;
     setRawRecords(demoRecords);
     setFilterOptions(options);
     setFilters(createDefaultFilters(options));
