@@ -89,6 +89,17 @@ const MARGEN_KEYS = [
   'margen promedio',
 ];
 
+const UNITS_KEYS = [
+  'unidades',
+  'unidades un',
+  'cantidad unidades',
+  'ventas unidades',
+  'numero unidades',
+  'units',
+  'units sold',
+  'volumen',
+];
+
 const BUSINESS_LINE_KEYS = [
   'lineanegocio',
   'linea de negocio',
@@ -150,6 +161,7 @@ const mapRecord = (record) => {
   const ingresos = firstNumeric(record, INGRESO_KEYS);
   const costos = firstNumeric(record, COSTO_KEYS);
   let margen = firstNumeric(record, MARGEN_KEYS);
+  const unidades = firstNumeric(record, UNITS_KEYS);
 
   if (!Number.isFinite(margen) && Number.isFinite(ingresos) && Number.isFinite(costos)) {
     margen = ingresos - costos;
@@ -164,6 +176,7 @@ const mapRecord = (record) => {
     ingresos,
     costos,
     margen,
+    unidades,
   };
 };
 
@@ -224,9 +237,11 @@ export const transformToCategories = (records) => {
     const margins = list.map((item) => parseNumber(item.margen) || 0);
     const ingresos = list.map((item) => parseNumber(item.ingresos) || 0);
     const costos = list.map((item) => parseNumber(item.costos) || 0);
+    const unidades = list.map((item) => parseNumber(item.unidades) || 0);
     const margenMean = mean(margins);
     const ingresoMean = mean(ingresos);
     const costoMean = mean(costos);
+    const unitsMean = mean(unidades);
     const n = list.length;
     const stdDev = Math.sqrt(
       margins.reduce((acc, value) => acc + (value - margenMean) ** 2, 0) / (n || 1),
@@ -238,11 +253,13 @@ export const transformToCategories = (records) => {
       margen: margenMean,
       ingreso: ingresoMean,
       costo: costoMean,
+      unidades: unitsMean,
       stdDev,
       n,
       totalIngresos: ingresos.reduce((acc, value) => acc + value, 0),
       totalCostos: costos.reduce((acc, value) => acc + value, 0),
       totalMargen: margins.reduce((acc, value) => acc + value, 0),
+      totalUnidades: unidades.reduce((acc, value) => acc + value, 0),
       lower: margenMean,
       upper: margenMean,
       records: list,
