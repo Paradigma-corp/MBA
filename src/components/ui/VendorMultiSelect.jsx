@@ -1,128 +1,106 @@
-import React, { useMemo } from 'react';
-import Select, { components } from 'react-select';
-import { FixedSizeList as List } from 'react-window';
+import React, { useMemo, useState } from 'react';
 
-const ITEM_HEIGHT = 34;
-
-const MenuList = (props) => {
-  const { children } = props;
-  const itemCount = children?.length ?? 0;
-  const height = Math.min(itemCount, 10) * ITEM_HEIGHT;
-  if (!itemCount) return <components.MenuList {...props} />;
-  return (
-    <components.MenuList {...props}>
-      <List height={height} itemCount={itemCount} itemSize={ITEM_HEIGHT} width="100%">
-        {({ index, style }) => <div style={style}>{children[index]}</div>}
-      </List>
-    </components.MenuList>
-  );
-};
-
-const MultiValueContainer = (props) => {
-  const selected = props.getValue();
-  const index = selected.findIndex((item) => item.value === props.data.value);
-  if (index >= 2) {
-    if (index === 2) {
-      const remaining = selected.length - 2;
-      return <span className="text-[11px] text-slate-500 px-1">+{remaining}</span>;
-    }
-    return null;
-  }
-  return <components.MultiValueContainer {...props} />;
-};
-
-const Input = (props) => (
-  <components.Input
-    {...props}
-    onPaste={(event) => {
-      const text = event.clipboardData.getData('Text');
-      if (!text.includes(',') && !text.includes(';')) return;
-      event.preventDefault();
-      const tokens = text
-        .split(/[,;]+/)
-        .map((value) => value.trim())
-        .filter(Boolean);
-      if (!tokens.length) return;
-      const optionMap = new Map(props.selectProps.options.map((opt) => [opt.value, opt]));
-      const current = new Map(props.selectProps.value.map((opt) => [opt.value, opt]));
-      tokens.forEach((token) => {
-        if (optionMap.has(token)) current.set(token, optionMap.get(token));
-      });
-      props.selectProps.onChange(Array.from(current.values()), { action: 'paste' });
-    }}
-  />
+const Checkbox = ({ checked }) => (
+  <span
+    className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition ${
+      checked ? 'bg-celeste-600 border-celeste-600' : 'bg-white border-slate-300'
+    }`}
+    aria-hidden="true"
+  >
+    {checked && <span className="h-1.5 w-1.5 rounded-sm bg-white" />}
+  </span>
 );
 
-const Option = (props) => (
-  <components.Option {...props}>
-    <div className="flex items-center gap-2">
-      <input type="checkbox" readOnly checked={props.isSelected} className="h-3.5 w-3.5" />
-      <span className="text-sm text-slate-800">{props.label}</span>
-      {props.data.line && <span className="ml-auto text-[11px] text-slate-500">{props.data.line}</span>}
-    </div>
-  </components.Option>
-);
+const VendorMultiSelect = ({ options = [], valueSet = new Set(), onChange, placeholder = 'Selecciona vendedores' }) => {
+  const [query, setQuery] = useState('');
 
-const VendorMultiSelect = ({ options = [], valueSet, onChange, placeholder = 'Selecciona vendedores' }) => {
   const groupedOptions = useMemo(() => {
-    const grouped = options.reduce((acc, option) => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const filtered = normalizedQuery
+      ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+      : options;
+
+    const grouped = filtered.reduce((acc, option) => {
       const key = option.line || '—';
       if (!acc[key]) acc[key] = [];
       acc[key].push(option);
       return acc;
     }, {});
-    return Object.entries(grouped).map(([label, opts]) => ({ label, options: opts }));
-  }, [options]);
 
-  const value = useMemo(() => options.filter((opt) => valueSet?.has(opt.value)), [options, valueSet]);
+    return Object.entries(grouped)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([label, opts]) => ({ label, options: opts.sort((x, y) => x.label.localeCompare(y.label)) }));
+  }, [options, query]);
 
-  const handleChange = (selected) => {
-    const nextSet = new Set((selected ?? []).map((opt) => opt.value));
-    onChange(nextSet);
+  const selected = useMemo(() => new Set(Array.from(valueSet).filter(Boolean)), [valueSet]);
+
+  const toggleVendor = (vendor) => {
+    const next = new Set(selected);
+    if (next.has(vendor)) {
+      next.delete(vendor);
+    } else {
+      next.add(vendor);
+    }
+    onChange(next);
   };
+
+  const selectAll = () => onChange(new Set(options.map((opt) => opt.value)));
+  const clearAll = () => onChange(new Set());
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs text-slate-600">
         <span className="text-[11px] uppercase tracking-[0.08em] text-slate-500">Vendedor</span>
         <div className="flex items-center gap-2">
-          <button type="button" className="text-celeste-700 hover:text-celeste-800" onClick={() => onChange(new Set())}>
+          <button type="button" className="text-celeste-700 hover:text-celeste-800" onClick={clearAll}>
             Limpiar
           </button>
-          <button
-            type="button"
-            className="text-celeste-700 hover:text-celeste-800"
-            onClick={() => onChange(new Set(options.map((opt) => opt.value)))}
-          >
+          <button type="button" className="text-celeste-700 hover:text-celeste-800" onClick={selectAll}>
             Seleccionar todos
           </button>
         </div>
       </div>
-      <Select
-        options={groupedOptions}
-        placeholder={placeholder}
-        isMulti
-        isClearable
-        closeMenuOnSelect={false}
-        hideSelectedOptions={false}
-        classNamePrefix="vendor-select"
-        styles={{
-          control: (base) => ({ ...base, minHeight: 44, borderRadius: 12, borderColor: '#cbd5e1' }),
-          multiValue: (base) => ({ ...base, borderRadius: 10, backgroundColor: '#e2e8f0' }),
-          valueContainer: (base) => ({ ...base, gap: 4, paddingLeft: 10 }),
-          menu: (base) => ({ ...base, zIndex: 50 }),
-        }}
-        menuPortalTarget={document.body}
-        menuPlacement="auto"
-        maxMenuHeight={320}
-        components={{ MenuList, MultiValueContainer, Input, Option }}
-        value={value}
-        onChange={handleChange}
-        className="w-full"
-        noOptionsMessage={() => 'Sin coincidencias'}
-        inputId="vendors-search"
-        aria-label="Selecciona vendedores"
-      />
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-celeste-400 focus:outline-none"
+          aria-label="Buscar vendedor"
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        {groupedOptions.length === 0 ? (
+          <p className="px-3 py-2 text-sm text-slate-500">Sin coincidencias</p>
+        ) : (
+          groupedOptions.map((group) => (
+            <div key={group.label} className="border-b border-slate-100 last:border-b-0">
+              <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{group.label}</p>
+              <ul className="divide-y divide-slate-100">
+                {group.options.map((option) => {
+                  const checked = selected.has(option.value);
+                  return (
+                    <li key={option.value}>
+                      <button
+                        type="button"
+                        onClick={() => toggleVendor(option.value)}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition hover:bg-slate-50 ${
+                          checked ? 'bg-celeste-50 text-celeste-900' : 'text-slate-800'
+                        }`}
+                      >
+                        <Checkbox checked={checked} />
+                        <span>{option.label}</span>
+                        {option.line && <span className="ml-auto text-[11px] text-slate-500">{option.line}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 };

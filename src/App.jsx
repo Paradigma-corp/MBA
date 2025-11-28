@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import {
   Activity,
@@ -117,7 +117,7 @@ const App = () => {
     [demoCategories, normalizedDemo],
   );
 
-  const { categories, salespeople, correlations, statSummary, filteredRecords } = useAnalyticsData({
+  const { categories, salespeople, correlations, statSummary, filteredRecords, pending } = useAnalyticsData({
     rawRecords,
     filters,
     iterations: bootstrapIterations,
@@ -332,13 +332,6 @@ const App = () => {
     image.src = url;
   };
 
-  const marginRange = [filters.mMin, filters.mMax];
-  const sliderStep = useMemo(() => {
-    const spread = marginBounds.max - marginBounds.min;
-    if (!Number.isFinite(spread) || spread === 0) return 1;
-    return Math.max(spread / 200, 0.01);
-  }, [marginBounds]);
-
   const modalDetails = useMemo(
     () => ({
       correlations: {
@@ -499,6 +492,18 @@ const App = () => {
 
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
 
+  const workerBadge = pending ? (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold">
+      <RefreshCw size={14} className="animate-spin" />
+      Calculando con filtros activos
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold">
+      <ShieldCheck size={14} />
+      Worker listo, UI libre de bloqueos
+    </span>
+  );
+
   return (
     <div className="min-h-screen text-slate-900 bg-[#f6f7f9]">
       <div className="bg-black text-white border-b border-black/60">
@@ -538,7 +543,10 @@ const App = () => {
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
               Datos {dataSource === 'demo' ? 'demo' : 'CSV importado'}
             </span>
-            <span className="text-xs text-slate-500">Procesando 10,741 filas sin muestreo</span>
+            <span className="text-xs text-slate-500 flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${pending ? 'bg-amber-500' : 'bg-emerald-500'} shadow`} />
+              {pending ? 'Recalculando métricas en background…' : 'Listo para filtrar sin muestreo'}
+            </span>
           </div>
         </div>
       </div>
@@ -623,13 +631,14 @@ const App = () => {
                         <h2 className="text-3xl lg:text-4xl font-semibold leading-tight">{heroSlides[activeSlide].title}</h2>
                         <p className="text-sm lg:text-base text-white/85">{heroSlides[activeSlide].subtitle}</p>
                       </div>
-                      <div className="px-4 py-2 rounded-full bg-white/15 border border-white/20 backdrop-blur-sm inline-flex items-center gap-2 text-xs font-semibold">
-                        <RefreshCw size={14} /> {dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
-                        <Activity size={16} /> Margen medio {formatPercent(stats.marginPct)}
+                  <div className="px-4 py-2 rounded-full bg-white/15 border border-white/20 backdrop-blur-sm inline-flex items-center gap-2 text-xs font-semibold">
+                    <RefreshCw size={14} className={pending ? 'animate-spin' : ''} />{' '}
+                    {dataSource === 'demo' ? 'Dataset demo' : 'CSV importado'}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
+                    <Activity size={16} /> Margen medio {formatPercent(stats.marginPct)}
                       </div>
                       <div className="backdrop-blur-md bg-white/15 border border-white/20 rounded-2xl px-4 py-3 flex items-center gap-2 text-sm">
                         <Users size={16} /> {stats.vendedores} vendedores
@@ -693,8 +702,12 @@ const App = () => {
                     Volver a demo
                   </button>
                 </div>
-                <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                  Web Worker aislado evita bloqueos de UI al transformar las 10,741 filas. Bootstrap configurable mantiene la precisión.
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-slate-900">Web Worker aislado evita bloqueos al transformar las 10,741 filas.</p>
+                    <p className="text-slate-600">Bootstrap configurable mantiene la precisión; el estado se muestra en vivo.</p>
+                  </div>
+                  {workerBadge}
                 </div>
                 <div className="mt-3 p-3 rounded-2xl bg-slate-900/5 border border-slate-200 text-xs text-slate-600 space-y-1">
                   <p className="font-semibold text-slate-900 text-sm">¿Cómo cargar la base de datos?</p>
@@ -710,7 +723,7 @@ const App = () => {
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                   <p className="text-xs uppercase text-slate-500">Filtros de análisis</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Año, condición y rango de margen</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Año, condición y vendedor</h3>
                 </div>
                 <button
                   type="button"
@@ -795,64 +808,52 @@ const App = () => {
                     onChange={(nextSet) => setFilters((prev) => ({ ...prev, vendedores: nextSet }))}
                     placeholder="Selecciona vendedores"
                   />
-                  <p className="text-xs text-slate-500">Búsqueda rápida (&lt;100 ms) con lista virtualizada y grupos por línea.</p>
+                  <p className="text-xs text-slate-500">Búsqueda rápida (&lt;100 ms) con lista completa y grupos por línea.</p>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <div className="space-y-2 lg:col-span-2">
-                  <label className="text-xs uppercase text-slate-500">Rango de margen (slider doble)</label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="range"
-                      min={marginBounds.min}
-                      max={marginBounds.max}
-                      step={sliderStep}
-                      value={marginRange[0]}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        setFilters((prev) => ({
-                          ...prev,
-                          mMin: Math.min(next, prev.mMax),
-                        }));
-                      }}
-                      className="flex-1"
-                    />
-                    <input
-                      type="range"
-                      min={marginBounds.min}
-                      max={marginBounds.max}
-                      step={sliderStep}
-                      value={marginRange[1]}
-                      onChange={(e) => {
-                        const next = Number(e.target.value);
-                        setFilters((prev) => ({
-                          ...prev,
-                          mMax: Math.max(next, prev.mMin),
-                        }));
-                      }}
-                      className="flex-1"
-                    />
+                  <label className="text-xs uppercase text-slate-500">Preferencias de margen</label>
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={filters.logScale}
+                        onChange={(e) => setFilters((prev) => ({ ...prev, logScale: e.target.checked }))}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      Escala log en boxplot
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={showOutliers}
+                        onChange={(e) => setShowOutliers(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      Incluir outliers
+                    </label>
                   </div>
-                  <div className="flex items-center justify-between text-xs text-slate-600">
-                    <span>Min: {formatCurrency(Math.max(marginRange[0], marginBounds.min))}</span>
-                    <span>Max: {formatCurrency(Math.min(marginRange[1], marginBounds.max))}</span>
+                  <p className="text-[11px] text-slate-500">Preferencias aplican a boxplot, dispersión y KPIs de margen.</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                    {['pRange', 'iqr', 'stddev', 'none'].map((rule) => (
+                      <button
+                        key={rule}
+                        type="button"
+                        onClick={() => setOutlierRule(rule)}
+                        className={`px-3 py-2 rounded-xl border text-sm transition ${
+                          outlierRule === rule
+                            ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                        }`}
+                      >
+                        {rule === 'pRange' && 'Tukey (p)'}
+                        {rule === 'iqr' && 'IQR'}
+                        {rule === 'stddev' && 'Desviación estándar'}
+                        {rule === 'none' && 'Sin recorte'}
+                      </button>
+                    ))}
                   </div>
-                  <p className="text-xs text-slate-500">
-                    Al cambiar año/condición se recalculan los límites reales y se hace clamp automático.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs uppercase text-slate-500">Preferencias</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={filters.logScale}
-                      onChange={(e) => setFilters((prev) => ({ ...prev, logScale: e.target.checked }))}
-                      className="h-4 w-4 rounded border-slate-300"
-                    />
-                    <span className="text-sm text-slate-700">Escala log en boxplot</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">Se aplica solo al gráfico de márgenes.</p>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -886,13 +887,6 @@ const App = () => {
                     Vendedores ({filters.vendedores.size}) ✕
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setFilters((prev) => ({ ...prev, mMin: marginBounds.min, mMax: marginBounds.max }))}
-                  className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] border border-slate-200 hover:bg-slate-100"
-                >
-                  Márgenes {formatCurrency(marginRange[0])} – {formatCurrency(marginRange[1])} ✕
-                </button>
               </div>
             </div>
 
