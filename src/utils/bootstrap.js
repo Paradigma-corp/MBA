@@ -13,24 +13,37 @@ export const performBootstrap = (categories, iterations = 1000, confidenceLevel 
   const lowerP = halfAlpha;
   const upperP = 1 - halfAlpha;
 
-  const results = categories.reduce((acc, category) => {
-    acc[category.name] = [];
-    return acc;
-  }, {});
+  const activeCategories = categories
+    .filter((category) => Array.isArray(category.records) && category.records.length > 0)
+    .map((category) => ({
+      base: category,
+      margins: category.records.map((item) => Number(item.margen) || 0),
+      length: category.records.length,
+      results: new Float64Array(iterations),
+    }));
+
+  if (activeCategories.length === 0) {
+    return categories.map((category) => ({ ...category, lower: category.margen, upper: category.margen }));
+  }
 
   for (let i = 0; i < iterations; i += 1) {
-    categories.forEach((category) => {
-      const sample = Array.from({ length: category.records.length }, () => {
-        const randomIndex = Math.floor(Math.random() * category.records.length);
-        return category.records[randomIndex];
-      });
-      const bootstrapMean = mean(sample.map((item) => Number(item.margen) || 0));
-      results[category.name].push(bootstrapMean);
+    activeCategories.forEach((category) => {
+      let sum = 0;
+      for (let j = 0; j < category.length; j += 1) {
+        const randomIndex = Math.floor(Math.random() * category.length);
+        sum += category.margins[randomIndex];
+      }
+      category.results[i] = category.length ? sum / category.length : 0;
     });
   }
 
   return categories.map((category) => {
-    const sorted = results[category.name].sort((a, b) => a - b);
+    const found = activeCategories.find((item) => item.base.name === category.name);
+    if (!found) {
+      return { ...category, lower: category.margen, upper: category.margen };
+    }
+
+    const sorted = Array.from(found.results).sort((a, b) => a - b);
     return {
       ...category,
       lower: percentile(sorted, lowerP),

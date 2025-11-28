@@ -4,6 +4,7 @@ import {
   Activity,
   ArrowUpRight,
   BarChart3,
+  Download,
   CloudUpload,
   Home,
   MapPin,
@@ -11,7 +12,6 @@ import {
   LayoutDashboard,
   Layers,
   LineChart,
-  Phone,
   Percent,
   RefreshCw,
   ShieldCheck,
@@ -29,13 +29,16 @@ import WaterfallCalculator from './components/calculators/WaterfallCalculator.js
 import { demoRecords, demoSalespeople } from './data/demoData.js';
 import { performBootstrap } from './utils/bootstrap.js';
 import {
-  businessLineFromRecord,
   computeCorrelations,
-  normalizeFinancialRecord,
+  computeStatSummary,
+  normalizeRecords,
   transformToCategories,
   transformToSalespeople,
-  yearFromRecord,
 } from './utils/dataParser.js';
+import { useAnalyticsData } from './hooks/useAnalyticsData.js';
+import { defaultFilters, deriveFilterOptions } from './utils/filters.js';
+import { formatCurrency, formatMillionsUSD, formatNumber, formatPercent } from './utils/formatters.js';
+import { summarizeMarginsByLine } from './utils/marginStats.js';
 import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
@@ -67,74 +70,64 @@ const heroSlides = [
 ];
 
 const App = () => {
+  const [rawRecords, setRawRecords] = useState(demoRecords);
+  const [dataSource, setDataSource] = useState('demo');
+  const initialFilterOptions = useMemo(() => deriveFilterOptions(demoRecords), []);
+  const [filters, setFilters] = useState(() => ({
+    ...defaultFilters,
+    marginRange: [initialFilterOptions.marginRange.min, initialFilterOptions.marginRange.max],
+  }));
   const [config, setConfig] = useState({
     rSquared: 0.85,
     betaIngreso: 0.75,
     betaCosto: -0.65,
     pearsonCoef: 0.92,
   });
-  const [bootstrapIterations, setBootstrapIterations] = useState(2000);
-  const [categories, setCategories] = useState(() => {
-    const transformed = transformToCategories(demoRecords);
-    return performBootstrap(transformed, 5000);
-  });
-  const [salespeople, setSalespeople] = useState(transformToSalespeople(demoRecords));
-  const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
-  const [rawRecords, setRawRecords] = useState(demoRecords);
-  const [dataSource, setDataSource] = useState('demo');
-  const [workerReady, setWorkerReady] = useState(false);
-  const [filters, setFilters] = useState({
-    years: [],
-    businessLine: 'all',
-  });
+  const INITIAL_BOOTSTRAP = 5000;
+  const [bootstrapIterations, setBootstrapIterations] = useState(INITIAL_BOOTSTRAP);
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
-  const workerRef = useRef(null);
+  const [showOutliers, setShowOutliers] = useState(true);
+  const chartRef = useRef(null);
 
-  useEffect(() => {
-    const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
-    worker.onmessage = (event) => {
-      const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
-      setCategories(newCategories);
-      setSalespeople(newSalespeople);
-      setCorrelations(newCorrelations);
-    };
-    workerRef.current = worker;
-    setWorkerReady(true);
-    return () => worker.terminate();
-  }, []);
+  const normalizedDemo = useMemo(() => normalizeRecords(demoRecords), []);
+  const demoCategories = useMemo(
+    () => transformToCategories(normalizedDemo, { normalized: true }),
+    [normalizedDemo],
+  );
+  const initialData = useMemo(
+    () => ({
+      categories: performBootstrap(demoCategories, INITIAL_BOOTSTRAP),
+      salespeople: transformToSalespeople(normalizedDemo, { normalized: true }),
+      correlations: computeCorrelations(normalizedDemo, { normalized: true }),
+      statSummary: computeStatSummary(normalizedDemo, { normalized: true }),
+    }),
+    [demoCategories, normalizedDemo],
+  );
 
-  const businessLineOf = (record) => businessLineFromRecord(record);
+  const { categories, salespeople, correlations, statSummary, filteredRecords } = useAnalyticsData({
+    rawRecords,
+    filters,
+    iterations: bootstrapIterations,
+    confidenceLevel: 0.95,
+    initialData,
+  });
 
-  const filteredRecords = useMemo(() => {
-    return rawRecords.filter((record) => {
-      const year = yearFromRecord(record);
-      const matchYear = filters.years.length === 0 || (year !== undefined && filters.years.includes(year));
-      const line = businessLineOf(record);
-      const matchBusiness = filters.businessLine === 'all' || (line && line === filters.businessLine);
-      return matchYear && matchBusiness;
-    });
-  }, [filters, rawRecords]);
-
-  useEffect(() => {
-    if (!workerReady || !workerRef.current) return;
-    workerRef.current.postMessage({
-      records: filteredRecords,
-      iterations: bootstrapIterations,
-      confidenceLevel: 0.95,
-    });
-  }, [filteredRecords, bootstrapIterations, workerReady]);
+  const normalizedFiltered = useMemo(() => normalizeRecords(filteredRecords), [filteredRecords]);
 
   const handleFile = (file) => {
-    if (!workerRef.current) return;
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const parsed = results.data.filter((row) => row['Nombre segmentación']);
-        setFilters({ years: [], businessLine: 'all' });
+        const parsed = results.data.filter((row) => row && Object.keys(row).length > 0);
+        const options = deriveFilterOptions(parsed);
+        setFilters({
+          ...defaultFilters,
+          marginRange: [options.marginRange.min, options.marginRange.max],
+        });
         setRawRecords(parsed);
         setDataSource('imported');
       },
@@ -145,12 +138,13 @@ const App = () => {
   };
 
   const resetDemo = () => {
-    const transformed = transformToCategories(demoRecords);
-    setCategories(performBootstrap(transformed, bootstrapIterations));
-    setSalespeople(transformToSalespeople(demoRecords));
-    setCorrelations(computeCorrelations(demoRecords));
+    const options = deriveFilterOptions(demoRecords);
     setRawRecords(demoRecords);
-    setFilters({ years: [], businessLine: 'all' });
+    setFilters({
+      ...defaultFilters,
+      marginRange: [options.marginRange.min, options.marginRange.max],
+    });
+    setBootstrapIterations(INITIAL_BOOTSTRAP);
     setDataSource('demo');
   };
 
@@ -175,143 +169,98 @@ const App = () => {
     [categories, salespeople, totals.marginPct],
   );
 
-  const statSummary = useMemo(() => {
-    const marginPercents = [];
-    const ingresos = [];
-    const costos = [];
+  const marginSummaries = useMemo(
+    () => summarizeMarginsByLine(normalizedFiltered, { bootstrapSamples: 2000 }),
+    [normalizedFiltered],
+  );
 
-    filteredRecords.forEach((item) => {
-      const normalized = normalizeFinancialRecord(item);
-      const ingreso = normalized.ingresos;
-      const costo = normalized.costos;
-      const margen = normalized.margen;
+  const APA_FOOTER =
+    'Nota. Bigotes = percentiles 10 y 90; banda = IC95% bootstrap (B=2000) de la mediana. Fuente: Divemotor (panel interno).';
 
-      if (Number.isFinite(ingreso)) ingresos.push(ingreso);
-      if (Number.isFinite(costo)) costos.push(costo);
-      if (Number.isFinite(ingreso) && ingreso !== 0 && Number.isFinite(margen)) {
-        marginPercents.push((margen / ingreso) * 100);
-      }
-    });
-
-    const calc = (values) => {
-      const n = values.length;
-      if (!n) {
-        return {
-          mean: 0,
-          median: 0,
-          mode: 0,
-          stdSample: 0,
-          varianceSample: 0,
-          stderr: 0,
-          skewness: 0,
-          kurtosis: 0,
-          min: 0,
-          max: 0,
-        };
-      }
-
-      const sorted = [...values].sort((a, b) => a - b);
-      const meanValue = values.reduce((acc, value) => acc + value, 0) / n;
-      const varianceSample = n > 1 ? values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / (n - 1) : 0;
-      const stdSample = Math.sqrt(varianceSample);
-      const stderr = n > 0 ? stdSample / Math.sqrt(n) : 0;
-      const median = n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
-
-      const frequency = new Map();
-      let mode = sorted[0];
-      let maxCount = 0;
-      sorted.forEach((value) => {
-        const count = (frequency.get(value) || 0) + 1;
-        frequency.set(value, count);
-        if (count > maxCount) {
-          maxCount = count;
-          mode = value;
-        }
-      });
-
-      const centered = values.map((value) => value - meanValue);
-      const denom = stdSample > 0 ? stdSample ** 3 : 0;
-      const skewness = n > 2 && denom
-        ? (n / ((n - 1) * (n - 2))) * (centered.reduce((acc, value) => acc + value ** 3, 0) / denom)
-        : 0;
-      const kurtosis =
-        n > 3 && stdSample > 0
-          ?
-            (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3)) *
-              (centered.reduce((acc, value) => acc + value ** 4, 0) / (stdSample ** 4)) -
-            (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
-          : 0;
-
-      return {
-        mean: meanValue,
-        median,
-        mode,
-        stdSample,
-        varianceSample,
-        stderr,
-        skewness,
-        kurtosis,
-        min: Math.min(...values),
-        max: Math.max(...values),
-      };
-    };
-
-    return {
-      marginPct: calc(marginPercents),
-      ingresos: calc(ingresos),
-      costos: calc(costos),
-      muestras: marginPercents.length,
-    };
-  }, [filteredRecords]);
-
-  const boxPlotData = useMemo(() => {
-    const grouped = filteredRecords.reduce((acc, record) => {
-      const name = record['Nombre segmentación'] || record.segmentacionIGD;
-      if (!name) return acc;
-      const marginValue = Number(record.margen);
-      if (!Number.isFinite(marginValue)) return acc;
-      if (!acc[name]) acc[name] = [];
-      acc[name].push(marginValue);
-      return acc;
-    }, {});
-
-    return Object.entries(grouped).map(([name, margins]) => ({ name, margins }));
-  }, [filteredRecords]);
-
-  const filterOptions = useMemo(() => {
-    const years = Array.from(
-      new Set(
-        rawRecords
-          .map((item) => yearFromRecord(item))
-          .filter((year) => year !== undefined && year !== null && !Number.isNaN(year)),
-      ),
-    ).sort((a, b) => a - b);
-    const businessLines = Array.from(
-      new Set(
-        rawRecords
-          .map((item) => businessLineOf(item))
-          .filter((value) => value !== undefined && value !== null)
-          .map((value) => value.toString()),
-      ),
-    )
-      .filter((value) => value)
-      .sort((a, b) => a.localeCompare(b));
-    return { years, businessLines };
-  }, [rawRecords]);
-
-  const formatNumber = (value, options = {}) =>
-    Number.isFinite(value) ? value.toLocaleString('es-ES', { maximumFractionDigits: 2, ...options }) : '—';
-
-  const formatCurrency = (value) =>
-    Number.isFinite(value) ? `$${value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}` : '—';
-
-  const formatMillionsUSD = (value) => {
-    if (!Number.isFinite(value)) return '—';
-    const millions = value / 1_000_000;
-    return `$${millions.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}M`;
+  const triggerDownload = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
-  const formatPercent = (value) => (Number.isFinite(value) ? `${value.toFixed(1)}%` : '—');
+  const exportCsv = () => {
+    if (!marginSummaries.length) return;
+    const header = [
+      'Linea',
+      'N',
+      'Mediana',
+      'Q1',
+      'Q3',
+      'IQR',
+      'P10',
+      'P90',
+      'P90-P10',
+      'MAD',
+      'CV_robusto',
+      '%Outliers',
+      'IC95_Lower',
+      'IC95_Upper',
+    ];
+
+    const lines = marginSummaries.map((item) =>
+      [
+        item.line,
+        item.n,
+        item.median,
+        item.q1,
+        item.q3,
+        item.iqr,
+        item.p10,
+        item.p90,
+        item.pRange,
+        item.mad,
+        item.cvRobust,
+        item.outlierPct,
+        item.ciLower,
+        item.ciUpper,
+      ].join(','),
+    );
+
+    lines.push(`"Pie de nota","${APA_FOOTER.replace(/"/g, '""')}"`);
+    const blob = new Blob([`${header.join(',')}` + '\n' + lines.join('\n')], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    triggerDownload(blob, 'margenes_boxplot.csv');
+  };
+
+  const exportPng = () => {
+    const svg = chartRef.current?.querySelector('svg');
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const image = new Image();
+    image.onload = () => {
+      const footerHeight = 50;
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height + footerHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0);
+      ctx.fillStyle = '#475569';
+      ctx.font = '14px Inter, system-ui, sans-serif';
+      ctx.fillText(APA_FOOTER, 12, image.height + 30);
+      canvas.toBlob((blob) => {
+        if (blob) triggerDownload(blob, 'margenes_boxplot.png');
+      });
+      URL.revokeObjectURL(url);
+    };
+    image.src = url;
+  };
+
+  const filterOptions = useMemo(() => deriveFilterOptions(rawRecords), [rawRecords]);
+  const marginRange = filters.marginRange ?? [filterOptions.marginRange.min, filterOptions.marginRange.max];
 
   const modalDetails = useMemo(
     () => ({
@@ -454,8 +403,8 @@ const App = () => {
         title: 'Distribución de márgenes',
         body: (
           <div className="space-y-3 text-sm text-slate-700">
-            <p>Boxplot por categoría con mediana, cuartiles y valores extremos para márgenes.</p>
-            <p className="text-slate-600">Sirve para identificar outliers y amplitud de variación entre segmentos antes de fijar metas.</p>
+            <p>Boxplot por línea con bigotes P10–P90, banda IC95% de la mediana (bootstrap B=2000) y opción de mostrar outliers.</p>
+            <p className="text-slate-600">Sirve para identificar variabilidad robusta, valores extremos y dispersión intercuartil antes de fijar metas.</p>
           </div>
         ),
       },
@@ -507,7 +456,6 @@ const App = () => {
         <div className="max-w-6xl mx-auto px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-700">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-2"><MapPin size={16} className="text-black" /> Estamos en todo el Perú</span>
-            <span className="hidden md:inline-flex items-center gap-2"><Phone size={16} className="text-black" /> 0801-00008</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs">
@@ -685,41 +633,47 @@ const App = () => {
               <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <div>
                   <p className="text-xs uppercase text-slate-500">Filtros de análisis</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Nuevos / Usados y años relevantes</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Año, condición y rango de margen</h3>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setFilters({ years: [], businessLine: 'all' })}
+                  onClick={() =>
+                    setFilters({
+                      ...defaultFilters,
+                      marginRange: [filterOptions.marginRange.min, filterOptions.marginRange.max],
+                    })
+                  }
                   className="text-sm text-celeste-700 hover:text-celeste-800"
                 >
                   Limpiar filtros
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-3">
-                  <label className="text-xs uppercase text-slate-500">Nuevos / Usados (línea de negocio)</label>
+                  <label className="text-xs uppercase text-slate-500">Nuevo / Usado</label>
                   <div className="flex flex-wrap gap-2">
-                    {[{ label: 'Todos', value: 'all' }, ...filterOptions.businessLines.map((line) => ({ label: line, value: line }))].map(
-                      (option) => {
-                        const active = filters.businessLine === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setFilters((prev) => ({ ...prev, businessLine: option.value }))}
-                            className={`px-3 py-2 rounded-xl border text-sm transition ${
-                              active
-                                ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
-                                : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        );
-                      },
-                    )}
+                    {[{ label: 'Todos', value: 'all' }, ...filterOptions.conditions.map((condition) => ({
+                      label: condition.charAt(0).toUpperCase() + condition.slice(1),
+                      value: condition,
+                    }))].map((option) => {
+                      const active = filters.condition === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setFilters((prev) => ({ ...prev, condition: option.value }))}
+                          className={`px-3 py-2 rounded-xl border text-sm transition ${
+                            active
+                              ? 'bg-celeste-600 text-white border-celeste-600 shadow-sm'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-celeste-200'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <p className="text-xs text-slate-500">Selecciona si quieres ver solo unidades nuevas, usadas o todo.</p>
+                  <p className="text-xs text-slate-500">Alterna por condición comercial sin perder el resto del dataset.</p>
                 </div>
                 <div className="space-y-3">
                   <label className="text-xs uppercase text-slate-500">Año (selección múltiple)</label>
@@ -761,6 +715,44 @@ const App = () => {
                   </div>
                   <p className="text-xs text-slate-500">Puedes combinar varios años para un análisis acumulado.</p>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs uppercase text-slate-500">Rango de margen (slider doble)</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={filterOptions.marginRange.min}
+                      max={filterOptions.marginRange.max}
+                      value={marginRange[0]}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setFilters((prev) => ({
+                          ...prev,
+                          marginRange: [Math.min(next, marginRange[1]), marginRange[1]],
+                        }));
+                      }}
+                      className="flex-1"
+                    />
+                    <input
+                      type="range"
+                      min={filterOptions.marginRange.min}
+                      max={filterOptions.marginRange.max}
+                      value={marginRange[1]}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setFilters((prev) => ({
+                          ...prev,
+                          marginRange: [marginRange[0], Math.max(next, marginRange[0])],
+                        }));
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-slate-600">
+                    <span>Mín: {formatCurrency(marginRange[0])}</span>
+                    <span>Máx: {formatCurrency(marginRange[1])}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">Arrastra los extremos para excluir márgenes atípicos antes del cálculo.</p>
+                </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200">
@@ -771,11 +763,14 @@ const App = () => {
                     Años {filters.years.join(', ')}
                   </span>
                 )}
-                {filters.businessLine !== 'all' && (
+                {filters.condition !== 'all' && (
                   <span className="px-2.5 py-1 rounded-full bg-celeste-50 text-celeste-700 text-[11px] border border-celeste-100">
-                    {filters.businessLine}
+                    {filters.condition}
                   </span>
                 )}
+                <span className="px-2.5 py-1 rounded-full bg-slate-50 text-slate-700 text-[11px] border border-slate-200">
+                  Márgenes {formatCurrency(marginRange[0])} – {formatCurrency(marginRange[1])}
+                </span>
               </div>
             </div>
 
@@ -1047,18 +1042,84 @@ const App = () => {
                 <ScatterPlot data={categories} />
               </div>
               <div className="card border border-slate-200/80 shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
-                  <span className="text-xs text-slate-500">Outliers incluidos</span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('boxplot')}
-                    className="text-xs text-celeste-700 hover:text-celeste-800"
-                  >
-                    Ver popup
-                  </button>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
+                    <p className="text-xs text-slate-500">Bigotes P10–P90 · Banda IC95% mediana (bootstrap 2,000)</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white">
+                      <input
+                        type="checkbox"
+                        checked={showOutliers}
+                        onChange={(e) => setShowOutliers(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      Outliers incluidos
+                    </label>
+                    <button
+                      type="button"
+                      onClick={exportPng}
+                      className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
+                    >
+                      <Download size={14} /> PNG
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exportCsv}
+                      className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
+                    >
+                      <Download size={14} /> CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('boxplot')}
+                      className="text-xs text-celeste-700 hover:text-celeste-800"
+                    >
+                      Ver popup
+                    </button>
+                  </div>
                 </div>
-                <BoxPlot data={boxPlotData} />
+                <BoxPlot ref={chartRef} data={marginSummaries} showOutliers={showOutliers} />
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {marginSummaries.map((item) => (
+                    <div key={item.line} className="p-3 rounded-xl border border-slate-200 bg-slate-50/60">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.line}</p>
+                          <p className="text-[11px] text-slate-500">Años: {item.years.length ? item.years.join(', ') : '—'}</p>
+                        </div>
+                        <span className="text-[11px] px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700">N {item.n}</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700">
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <p className="text-[10px] uppercase text-slate-500">Mediana</p>
+                          <p className="font-semibold text-slate-900">{formatCurrency(item.median)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <p className="text-[10px] uppercase text-slate-500">IQR</p>
+                          <p className="font-semibold text-slate-900">{formatCurrency(item.iqr)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <p className="text-[10px] uppercase text-slate-500">P90 - P10</p>
+                          <p className="font-semibold text-slate-900">{formatCurrency(item.pRange)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <p className="text-[10px] uppercase text-slate-500">CV robusto</p>
+                          <p className="font-semibold text-slate-900">{formatPercent(item.cvRobust)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <p className="text-[10px] uppercase text-slate-500">% outliers</p>
+                          <p className="font-semibold text-slate-900">{formatPercent(item.outlierPct / 100)}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-white border border-slate-200">
+                          <p className="text-[10px] uppercase text-slate-500">IC95% mediana</p>
+                          <p className="font-semibold text-slate-900">{formatCurrency(item.ciLower)} – {formatCurrency(item.ciUpper)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

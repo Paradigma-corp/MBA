@@ -1,8 +1,32 @@
+const BUSINESS_LINE_ALIASES = new Map([
+  ['auto', 'Automóviles'],
+  ['autos', 'Automóviles'],
+  ['automovil', 'Automóviles'],
+  ['automoviles', 'Automóviles'],
+  ['automóviles', 'Automóviles'],
+  ['camion', 'Camiones'],
+  ['camioneta', 'Camiones'],
+  ['camiones', 'Camiones'],
+  ['bus', 'Buses'],
+  ['buses', 'Buses'],
+  ['van', 'Vans'],
+  ['vans', 'Vans'],
+  ['nuevo', 'Nuevos'],
+  ['nuevos', 'Nuevos'],
+  ['usado', 'Usados'],
+  ['usados', 'Usados'],
+]);
+
 export const normalizeBusinessLine = (value) => {
   if (value === undefined || value === null) return undefined;
   const text = value.toString().trim();
   if (!text) return undefined;
+
   const lower = text.toLowerCase();
+  const normalizedKey = lower.replace(/\s+/g, ' ').trim();
+  if (BUSINESS_LINE_ALIASES.has(normalizedKey)) {
+    return BUSINESS_LINE_ALIASES.get(normalizedKey);
+  }
 
   if (lower.includes('auto')) return 'Automóviles';
   if (lower.includes('camion')) return 'Camiones';
@@ -14,9 +38,9 @@ export const normalizeBusinessLine = (value) => {
   return text;
 };
 
-const CORE_LINES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
+const numberCache = new Map();
 
-const parseNumber = (value) => {
+export const parseNumber = (value) => {
   if (value === undefined || value === null) return NaN;
   if (typeof value === 'number') return value;
 
@@ -24,6 +48,8 @@ const parseNumber = (value) => {
   if (!text) return NaN;
 
   const sanitized = text.replace(/[^0-9,.,-]/g, '');
+  const cacheKey = sanitized;
+  if (numberCache.has(cacheKey)) return numberCache.get(cacheKey);
   const lastComma = sanitized.lastIndexOf(',');
   const lastDot = sanitized.lastIndexOf('.');
 
@@ -42,15 +68,28 @@ const parseNumber = (value) => {
     const integer = parts.join('');
     const intClean = integer.replace(/[.,]/g, '');
     const fracClean = fractional.replace(/[.,]/g, '');
-    return Number(`${intClean}.${fracClean}`);
+    const parsed = Number(`${intClean}.${fracClean}`);
+    numberCache.set(cacheKey, parsed);
+    return parsed;
   }
 
   const integerOnly = sanitized.replace(/[.,]/g, '');
-  return Number(integerOnly);
+  const parsedInteger = Number(integerOnly);
+  numberCache.set(cacheKey, parsedInteger);
+  return parsedInteger;
 };
 
 const getEntryCaseInsensitive = (recordEntries, targetLower) =>
   recordEntries.find(([key]) => key.toLowerCase() === targetLower);
+
+const textFromRecord = (recordEntries, lowerKey) => {
+  const found = getEntryCaseInsensitive(recordEntries, lowerKey);
+  if (!found) return undefined;
+  const value = found[1];
+  if (value === undefined || value === null) return undefined;
+  const text = value.toString().trim();
+  return text || undefined;
+};
 
 const firstNumeric = (record = {}, keys = []) => {
   const entries = Object.entries(record);
@@ -90,13 +129,14 @@ const MARGEN_KEYS = [
 ];
 
 const BUSINESS_LINE_KEYS = [
-  'lineanegocio',
+  'línea de negocio',
   'linea de negocio',
+  'linea_negocio',
+  'linea negocio',
+  'lineanegocio',
   'línea de negocio',
   'linea',
   'línea',
-  'linea_negocio',
-  'linea negocio',
   'nombre linea',
   'nombre línea',
   'nombre de línea',
@@ -106,9 +146,14 @@ const BUSINESS_LINE_KEYS = [
   'segmentación',
   'segmentacion',
   'segmentacion igd',
+  'línea de negocio',
+  'linea de negocio',
+  'linea_negocio',
 ];
 
 const YEAR_KEYS = ['año', 'ano', 'anio', 'year', 'periodo', 'período'];
+
+const CONDITION_KEYS = ['nuevo/usado', 'nuevo o usado', 'condición', 'condicion', 'estado unidad'];
 
 export const yearFromRecord = (record = {}) => {
   if (Number.isFinite(record.Año)) return record.Año;
@@ -125,22 +170,46 @@ export const yearFromRecord = (record = {}) => {
   return undefined;
 };
 
+export const marginFromRecord = (record = {}) => {
+  const entries = Object.entries(record);
+  for (const lowerKey of MARGEN_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const parsed = parseNumber(found[1]);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return Number.isFinite(record.margen) ? Number(record.margen) : undefined;
+};
+
+export const conditionFromRecord = (record = {}) => {
+  const entries = Object.entries(record);
+  const direct = textFromRecord(entries, 'nuevo/usado');
+  if (direct) return direct;
+
+  for (const lowerKey of CONDITION_KEYS) {
+    const text = textFromRecord(entries, lowerKey);
+    if (!text) continue;
+    if (/^nuev/i.test(text)) return 'Nuevo';
+    if (/^usad/i.test(text)) return 'Usado';
+    return text;
+  }
+
+  return undefined;
+};
+
 export const businessLineFromRecord = (record = {}) => {
   const entries = Object.entries(record);
   for (const lowerKey of BUSINESS_LINE_KEYS) {
     const found = getEntryCaseInsensitive(entries, lowerKey);
     if (!found) continue;
     const normalized = normalizeBusinessLine(found[1]);
-    if (normalized && CORE_LINES.includes(normalized)) {
-      return normalized;
-    }
+    if (normalized) return normalized;
   }
 
   for (const [, value] of entries) {
     const normalized = normalizeBusinessLine(value);
-    if (normalized && CORE_LINES.includes(normalized)) {
-      return normalized;
-    }
+    if (normalized) return normalized;
   }
 
   return undefined;
@@ -149,7 +218,7 @@ export const businessLineFromRecord = (record = {}) => {
 const mapRecord = (record) => {
   const ingresos = firstNumeric(record, INGRESO_KEYS);
   const costos = firstNumeric(record, COSTO_KEYS);
-  let margen = firstNumeric(record, MARGEN_KEYS);
+  let margen = marginFromRecord(record);
 
   if (!Number.isFinite(margen) && Number.isFinite(ingresos) && Number.isFinite(costos)) {
     margen = ingresos - costos;
@@ -161,6 +230,7 @@ const mapRecord = (record) => {
       record['Nombre segmentación'] || record['nombre segmentación'] || record['nombre segmentacion'],
     vendedorSAP: record['Vendedor SAP'] || record['vendedor sap'] || record['Vendedor'],
     businessLine: businessLineFromRecord(record),
+    condition: conditionFromRecord(record),
     ingresos,
     costos,
     margen,
@@ -168,14 +238,21 @@ const mapRecord = (record) => {
 };
 
 export const normalizeFinancialRecord = mapRecord;
+export const normalizeRecords = (records = []) => records.map(mapRecord);
 
 const mean = (values) => values.reduce((acc, val) => acc + val, 0) / (values.length || 1);
+
+const toNumeric = (record, key) => {
+  if (Number.isFinite(record[key])) return record[key];
+  if (record[key] !== undefined) return parseNumber(record[key]);
+  return parseNumber(record[key]);
+};
 
 const correlation = (records, xKey, yKey) => {
   const cleaned = records
     .map((record) => ({
-      x: parseNumber(record[xKey]),
-      y: parseNumber(record[yKey]),
+      x: toNumeric(record, xKey),
+      y: toNumeric(record, yKey),
     }))
     .filter((pair) => Number.isFinite(pair.x) && Number.isFinite(pair.y));
 
@@ -198,8 +275,10 @@ const correlation = (records, xKey, yKey) => {
   return cov / (stdX * stdY);
 };
 
-export const computeCorrelations = (records) => {
-  const mapped = records.map(mapRecord);
+const ensureNormalized = (records, normalized) => (normalized ? records : normalizeRecords(records));
+
+export const computeCorrelations = (records, { normalized = false } = {}) => {
+  const mapped = ensureNormalized(records, normalized);
   return {
     margenIngreso: correlation(mapped, 'ingresos', 'margen'),
     margenCostos: correlation(mapped, 'costos', 'margen'),
@@ -208,11 +287,11 @@ export const computeCorrelations = (records) => {
   };
 };
 
-export const transformToCategories = (records) => {
-  const mapped = records.map(mapRecord);
+export const transformToCategories = (records, { normalized = false } = {}) => {
+  const mapped = ensureNormalized(records, normalized);
   const groups = mapped.reduce((acc, record) => {
     const groupKey = record.businessLine;
-    if (!groupKey || !CORE_LINES.includes(groupKey)) return acc;
+    if (!groupKey) return acc;
     if (!acc[groupKey]) {
       acc[groupKey] = [];
     }
@@ -221,9 +300,9 @@ export const transformToCategories = (records) => {
   }, {});
 
   return Object.entries(groups).map(([name, list], index) => {
-    const margins = list.map((item) => parseNumber(item.margen) || 0);
-    const ingresos = list.map((item) => parseNumber(item.ingresos) || 0);
-    const costos = list.map((item) => parseNumber(item.costos) || 0);
+    const margins = list.map((item) => Number(item.margen) || 0);
+    const ingresos = list.map((item) => Number(item.ingresos) || 0);
+    const costos = list.map((item) => Number(item.costos) || 0);
     const margenMean = mean(margins);
     const ingresoMean = mean(ingresos);
     const costoMean = mean(costos);
@@ -250,8 +329,8 @@ export const transformToCategories = (records) => {
   });
 };
 
-export const transformToSalespeople = (records) => {
-  const mapped = records.map(mapRecord);
+export const transformToSalespeople = (records, { normalized = false } = {}) => {
+  const mapped = ensureNormalized(records, normalized);
   const groups = mapped.reduce((acc, record) => {
     if (!acc[record.vendedorSAP]) {
       acc[record.vendedorSAP] = [];
@@ -261,8 +340,8 @@ export const transformToSalespeople = (records) => {
   }, {});
 
   return Object.entries(groups).map(([sapCode, list], index) => {
-    const ingresos = list.map((item) => parseNumber(item.ingresos) || 0);
-    const margins = list.map((item) => parseNumber(item.margen) || 0);
+    const ingresos = list.map((item) => Number(item.ingresos) || 0);
+    const margins = list.map((item) => Number(item.margen) || 0);
     const categoriesCount = list.reduce((acc, item) => {
       acc[item.segmentacionIGD] = (acc[item.segmentacionIGD] || 0) + 1;
       return acc;
@@ -297,4 +376,91 @@ export const transformToSalespeople = (records) => {
       totalSales: ingresos.reduce((acc, value) => acc + value, 0),
     };
   });
+};
+
+const calculateMoments = (values) => {
+  const n = values.length;
+  if (!n) {
+    return {
+      mean: 0,
+      median: 0,
+      mode: 0,
+      stdSample: 0,
+      varianceSample: 0,
+      stderr: 0,
+      skewness: 0,
+      kurtosis: 0,
+      min: 0,
+      max: 0,
+    };
+  }
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const meanValue = values.reduce((acc, value) => acc + value, 0) / n;
+  const varianceSample = n > 1 ? values.reduce((acc, value) => acc + (value - meanValue) ** 2, 0) / (n - 1) : 0;
+  const stdSample = Math.sqrt(varianceSample);
+  const stderr = n > 0 ? stdSample / Math.sqrt(n) : 0;
+  const median = n % 2 === 0 ? (sorted[n / 2 - 1] + sorted[n / 2]) / 2 : sorted[Math.floor(n / 2)];
+
+  const frequency = new Map();
+  let mode = sorted[0];
+  let maxCount = 0;
+  sorted.forEach((value) => {
+    const count = (frequency.get(value) || 0) + 1;
+    frequency.set(value, count);
+    if (count > maxCount) {
+      maxCount = count;
+      mode = value;
+    }
+  });
+
+  const centered = values.map((value) => value - meanValue);
+  const denom = stdSample > 0 ? stdSample ** 3 : 0;
+  const skewness = n > 2 && denom
+    ? (n / ((n - 1) * (n - 2))) * (centered.reduce((acc, value) => acc + value ** 3, 0) / denom)
+    : 0;
+  const kurtosis =
+    n > 3 && stdSample > 0
+      ? (n * (n + 1)) / ((n - 1) * (n - 2) * (n - 3)) * (centered.reduce((acc, value) => acc + value ** 4, 0) / stdSample ** 4) -
+        (3 * (n - 1) ** 2) / ((n - 2) * (n - 3))
+      : 0;
+
+  return {
+    mean: meanValue,
+    median,
+    mode,
+    stdSample,
+    varianceSample,
+    stderr,
+    skewness,
+    kurtosis,
+    min: Math.min(...values),
+    max: Math.max(...values),
+  };
+};
+
+export const computeStatSummary = (records, { normalized = false } = {}) => {
+  const mapped = ensureNormalized(records, normalized);
+  const marginPercents = [];
+  const ingresos = [];
+  const costos = [];
+
+  mapped.forEach((item) => {
+    const ingreso = item.ingresos;
+    const costo = item.costos;
+    const margen = item.margen;
+
+    if (Number.isFinite(ingreso)) ingresos.push(ingreso);
+    if (Number.isFinite(costo)) costos.push(costo);
+    if (Number.isFinite(ingreso) && ingreso !== 0 && Number.isFinite(margen)) {
+      marginPercents.push((margen / ingreso) * 100);
+    }
+  });
+
+  return {
+    marginPct: calculateMoments(marginPercents),
+    ingresos: calculateMoments(ingresos),
+    costos: calculateMoments(costos),
+    muestras: marginPercents.length,
+  };
 };
