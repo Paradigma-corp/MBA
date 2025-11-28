@@ -73,12 +73,9 @@ const App = () => {
     pearsonCoef: 0.92,
   });
   const [bootstrapIterations, setBootstrapIterations] = useState(2000);
-  const [categories, setCategories] = useState(() => {
-    const transformed = transformToCategories(demoRecords);
-    return performBootstrap(transformed, 5000);
-  });
-  const [salespeople, setSalespeople] = useState(transformToSalespeople(demoRecords));
-  const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
+  const [categories, setCategories] = useState(() => transformToCategories(demoRecords));
+  const [salespeople, setSalespeople] = useState(() => transformToSalespeople(demoRecords));
+  const [correlations, setCorrelations] = useState(() => computeCorrelations(demoRecords));
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
   const [lastFileName, setLastFileName] = useState('Dataset demo');
@@ -112,9 +109,28 @@ const App = () => {
     [bootstrapIterations],
   );
 
+  const [isCalculating, setIsCalculating] = useState(true);
+
   useEffect(() => {
-    // Cálculo siempre en el hilo principal para evitar fallos de inicialización de workers.
-    runInlineCalculations(filteredRecords);
+    setIsCalculating(true);
+
+    const trigger = () => {
+      try {
+        runInlineCalculations(filteredRecords);
+      } catch (error) {
+        console.error('Error al recalcular métricas', error);
+      } finally {
+        setIsCalculating(false);
+      }
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(trigger, { timeout: 200 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+
+    const timeoutId = setTimeout(trigger, 50);
+    return () => clearTimeout(timeoutId);
   }, [filteredRecords, bootstrapIterations, runInlineCalculations]);
 
   const handleFile = (file) => {
@@ -508,6 +524,11 @@ const App = () => {
               Fuente de datos: {dataSource === 'demo' ? 'demo de referencia' : 'CSV cargado'}
             </span>
             <span className="text-xs text-slate-500">Registros actuales: {formatNumber(recordCount, { maximumFractionDigits: 0 })}</span>
+            {isCalculating && (
+              <span className="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                <RefreshCw size={14} className="animate-spin" /> Recalculando métricas
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -671,13 +692,13 @@ const App = () => {
                   </div>
                 </div>
                 <div className="mt-4 p-3 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                  Web Worker aislado evita bloqueos de UI al transformar las {formatNumber(recordCount, { maximumFractionDigits: 0 })} filas activas. Bootstrap configurable mantiene la precisión.
+                  El cálculo se programa en segundo plano para no congelar la UI al transformar las {formatNumber(recordCount, { maximumFractionDigits: 0 })} filas activas. Bootstrap configurable mantiene la precisión.
                 </div>
                 <div className="mt-3 p-3 rounded-2xl bg-slate-900/5 border border-slate-200 text-xs text-slate-600 space-y-1">
                   <p className="font-semibold text-slate-900 text-sm">¿Cómo cargar la base de datos?</p>
                   <ol className="list-decimal list-inside space-y-1">
                     <li>Haz clic en <span className="font-semibold">“Seleccionar CSV”</span> y elige tu archivo <span className="font-semibold">BBDD x.csv</span>.</li>
-                    <li>Espera el indicador verde <span className="font-semibold">CSV importado</span>; el worker procesará categorías y vendedores.</li>
+                    <li>Espera el indicador verde <span className="font-semibold">CSV importado</span>; el cálculo se dispara en segundo plano y actualizará categorías y vendedores.</li>
                     <li>Usa <span className="font-semibold">“Volver a demo”</span> si necesitas regresar a los datos de ejemplo.</li>
                   </ol>
                   <p className="text-[11px] text-slate-500">Formato requerido: columnas "Nombre segmentación", "Vendedor SAP", "nombreVendedor", "Unidades UN", "ingresos", "costos", "margen".</p>
