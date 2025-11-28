@@ -8,20 +8,39 @@ const ScatterPlot = ({ data }) => {
     label: item.name,
   }));
 
-  const regression = useMemo(() => {
-    if (points.length < 2) return null;
+  const baseStats = useMemo(() => {
+    if (!points.length) return null;
     const meanX = points.reduce((acc, p) => acc + p.x, 0) / points.length;
     const meanY = points.reduce((acc, p) => acc + p.y, 0) / points.length;
     const numerator = points.reduce((acc, p) => acc + (p.x - meanX) * (p.y - meanY), 0);
-    const denominator = points.reduce((acc, p) => acc + (p.x - meanX) ** 2, 0);
-    if (denominator === 0) return null;
-    const slope = numerator / denominator;
-    const intercept = meanY - slope * meanX;
+    const sumXVar = points.reduce((acc, p) => acc + (p.x - meanX) ** 2, 0);
+    const sumYVar = points.reduce((acc, p) => acc + (p.y - meanY) ** 2, 0);
     const xs = points.map((p) => p.x);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
-    return { slope, intercept, minX, maxX };
+
+    return { meanX, meanY, numerator, sumXVar, sumYVar, minX, maxX };
   }, [points]);
+
+  const regression = useMemo(() => {
+    if (!baseStats || points.length < 2) return null;
+    if (baseStats.sumXVar === 0) return null;
+    const slope = baseStats.numerator / baseStats.sumXVar;
+    const intercept = baseStats.meanY - slope * baseStats.meanX;
+    return { slope, intercept, minX: baseStats.minX, maxX: baseStats.maxX };
+  }, [baseStats, points.length]);
+
+  const correlation = useMemo(() => {
+    if (!baseStats || points.length < 2) return null;
+    const denom = Math.sqrt(baseStats.sumXVar * baseStats.sumYVar);
+    if (denom === 0) return null;
+    const r = baseStats.numerator / denom;
+    return {
+      r,
+      r2: r * r,
+      count: points.length,
+    };
+  }, [baseStats, points.length]);
 
   const bootstrapBand = useMemo(() => {
     if (!regression || points.length < 3) return null;
@@ -70,57 +89,102 @@ const ScatterPlot = ({ data }) => {
     };
   }, [points, regression]);
 
+  const numberFmt = useMemo(
+    () =>
+      new Intl.NumberFormat('es-ES', {
+        maximumFractionDigits: 1,
+      }),
+    []
+  );
+
+  const percentFmt = useMemo(
+    () =>
+      new Intl.NumberFormat('es-ES', {
+        style: 'percent',
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 1,
+      }),
+    []
+  );
+
   return (
-    <div style={{ height: 320 }}>
-      <ResponsiveScatterPlot
-        data={[{ id: 'categorias', data: points }]}
-        margin={{ top: 30, right: 40, bottom: 50, left: 60 }}
-        xScale={{ type: 'linear', min: 'auto', max: 'auto' }}
-        yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
-        blendMode="multiply"
-        colors={['#0ea5e9']}
-        nodeSize={12}
-        axisBottom={{ legend: 'Ingreso promedio', legendOffset: 36, legendPosition: 'middle' }}
-        axisLeft={{ legend: 'Margen promedio', legendOffset: -45, legendPosition: 'middle' }}
-        tooltip={({ node }) => (
-          <div className="bg-white shadow-sm rounded px-3 py-2 text-sm text-slate-800">
-            <p className="font-semibold">{node.data.label}</p>
-            <p>Ingreso: {node.data.xFormatted}</p>
-            <p>Margen: {node.data.yFormatted}</p>
-          </div>
-        )}
-        layers={[
-          'grid',
-          'axes',
-          ({ xScale, yScale }) =>
-            bootstrapBand ? (
-              <g>
-                <path
-                  d={`M ${xScale(bootstrapBand.x1)} ${yScale(bootstrapBand.upperY1)}
-                      L ${xScale(bootstrapBand.x2)} ${yScale(bootstrapBand.upperY2)}
-                      L ${xScale(bootstrapBand.x2)} ${yScale(bootstrapBand.lowerY2)}
-                      L ${xScale(bootstrapBand.x1)} ${yScale(bootstrapBand.lowerY1)} Z`}
-                  fill="#0ea5e9"
-                  opacity={0.08}
-                />
-                <line
-                  x1={xScale(bootstrapBand.x1)}
-                  y1={yScale(bootstrapBand.centerY1)}
-                  x2={xScale(bootstrapBand.x2)}
-                  y2={yScale(bootstrapBand.centerY2)}
-                  stroke="#0ea5e9"
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
-                  opacity={0.9}
-                />
-              </g>
-            ) : null,
-          'nodes',
-          'markers',
-          'mesh',
-          'legends',
-        ]}
-      />
+    <div className="space-y-3">
+      <div style={{ height: 320 }}>
+        <ResponsiveScatterPlot
+          data={[{ id: 'categorias', data: points }]}
+          margin={{ top: 30, right: 40, bottom: 50, left: 60 }}
+          xScale={{ type: 'linear', min: 'auto', max: 'auto' }}
+          yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
+          blendMode="multiply"
+          colors={['#0ea5e9']}
+          nodeSize={12}
+          axisBottom={{ legend: 'Ingreso promedio', legendOffset: 36, legendPosition: 'middle' }}
+          axisLeft={{ legend: 'Margen promedio', legendOffset: -45, legendPosition: 'middle' }}
+          tooltip={({ node }) => (
+            <div className="bg-white shadow-sm rounded px-3 py-2 text-sm text-slate-800">
+              <p className="font-semibold">{node.data.label}</p>
+              <p>Ingreso: {node.data.xFormatted}</p>
+              <p>Margen: {node.data.yFormatted}</p>
+            </div>
+          )}
+          layers={[
+            'grid',
+            'axes',
+            ({ xScale, yScale }) =>
+              bootstrapBand ? (
+                <g>
+                  <path
+                    d={`M ${xScale(bootstrapBand.x1)} ${yScale(bootstrapBand.upperY1)}
+                        L ${xScale(bootstrapBand.x2)} ${yScale(bootstrapBand.upperY2)}
+                        L ${xScale(bootstrapBand.x2)} ${yScale(bootstrapBand.lowerY2)}
+                        L ${xScale(bootstrapBand.x1)} ${yScale(bootstrapBand.lowerY1)} Z`}
+                    fill="#0ea5e9"
+                    opacity={0.08}
+                  />
+                  <line
+                    x1={xScale(bootstrapBand.x1)}
+                    y1={yScale(bootstrapBand.centerY1)}
+                    x2={xScale(bootstrapBand.x2)}
+                    y2={yScale(bootstrapBand.centerY2)}
+                    stroke="#0ea5e9"
+                    strokeWidth={2}
+                    strokeDasharray="4 3"
+                    opacity={0.9}
+                  />
+                </g>
+              ) : null,
+            'nodes',
+            'markers',
+            'mesh',
+            'legends',
+          ]}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">Puntos</p>
+          <p className="text-slate-900 font-semibold">{correlation?.count ?? points.length}</p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">Correlación (r)</p>
+          <p className="text-slate-900 font-semibold">
+            {correlation ? numberFmt.format(correlation.r) : '—'}
+          </p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">R² ajustado</p>
+          <p className="text-slate-900 font-semibold">
+            {correlation ? percentFmt.format(correlation.r2) : '—'}
+          </p>
+        </div>
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-slate-500">Pendiente</p>
+          <p className="text-slate-900 font-semibold">
+            {regression ? `${numberFmt.format(regression.slope)} margen / ingreso` : '—'}
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
