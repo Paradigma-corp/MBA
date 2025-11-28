@@ -216,7 +216,11 @@ export const modelFromRecord = (record = {}) => {
 export const conditionFromRecord = (record = {}) => {
   const entries = Object.entries(record);
   const direct = textFromRecord(entries, 'nuevo/usado');
-  if (direct) return direct;
+  if (direct) {
+    if (/^nuev/i.test(direct)) return 'Nuevo';
+    if (/^usad/i.test(direct)) return 'Usado';
+    return direct;
+  }
 
   for (const lowerKey of CONDITION_KEYS) {
     const text = textFromRecord(entries, lowerKey);
