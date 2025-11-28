@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Papa from 'papaparse';
 import {
   Activity,
@@ -81,7 +81,6 @@ const App = () => {
   const [correlations, setCorrelations] = useState(computeCorrelations(demoRecords));
   const [rawRecords, setRawRecords] = useState(demoRecords);
   const [dataSource, setDataSource] = useState('demo');
-  const [workerReady, setWorkerReady] = useState(false);
   const [filters, setFilters] = useState({
     years: [],
     businessLine: 'all',
@@ -89,27 +88,6 @@ const App = () => {
   const [activePage, setActivePage] = useState('dashboard');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
-  const workerRef = useRef(null);
-
-  useEffect(() => {
-    try {
-      const worker = new Worker(new URL('./workers/dataWorker.js', import.meta.url), { type: 'module' });
-      worker.onmessage = (event) => {
-        const { categories: newCategories, salespeople: newSalespeople, correlations: newCorrelations } = event.data;
-        setCategories(newCategories);
-        setSalespeople(newSalespeople);
-        setCorrelations(newCorrelations);
-      };
-      workerRef.current = worker;
-      setWorkerReady(true);
-      return () => worker.terminate();
-    } catch (error) {
-      console.error('No se pudo iniciar el worker, se usará cálculo en el hilo principal.', error);
-      setWorkerReady(false);
-      return undefined;
-    }
-  }, []);
-
   const businessLineOf = (record) => businessLineFromRecord(record);
 
   const filteredRecords = useMemo(() => {
@@ -134,18 +112,9 @@ const App = () => {
   );
 
   useEffect(() => {
-    if (workerReady && workerRef.current) {
-      workerRef.current.postMessage({
-        records: filteredRecords,
-        iterations: bootstrapIterations,
-        confidenceLevel: 0.95,
-      });
-      return;
-    }
-
-    // Fallback al hilo principal si el worker no está disponible
+    // Cálculo siempre en el hilo principal para evitar fallos de inicialización de workers.
     runInlineCalculations(filteredRecords);
-  }, [filteredRecords, bootstrapIterations, workerReady, runInlineCalculations]);
+  }, [filteredRecords, bootstrapIterations, runInlineCalculations]);
 
   const handleFile = (file) => {
     Papa.parse(file, {
