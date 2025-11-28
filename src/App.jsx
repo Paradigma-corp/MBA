@@ -56,6 +56,7 @@ import CountingExposurePanel from './components/analytics/CountingExposurePanel.
 import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
 import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
 import MonteCarloMetaPanel from './components/analytics/MonteCarloMetaPanel.jsx';
+import LineCorrelationPanel from './components/analytics/LineCorrelationPanel.jsx';
 
 const heroSlides = [
   {
@@ -636,6 +637,17 @@ const App = () => {
                 }`}
               >
                 Pronóstico FOM y semáforo
+              </button>
+              <button
+                type="button"
+                onClick={() => setActivePage('correlations')}
+                className={`px-4 py-2 rounded-full border transition ${
+                  activePage === 'correlations'
+                    ? 'bg-black text-white border-black'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
+                }`}
+              >
+                Correlaciones entre líneas
               </button>
               <button
                 type="button"
@@ -1379,6 +1391,10 @@ const App = () => {
 
           ) : activePage === 'counting' ? (
             <CountingExposurePanel records={filteredRecords} />
+          ) : activePage === 'fom' ? (
+            <FomForecastPanel records={filteredRecords} />
+          ) : activePage === 'correlations' ? (
+            <LineCorrelationPanel records={filteredRecords} />
           ) : activePage === 'mix' ? (
             <MixOptimizerPanel records={filteredRecords} />
           ) : activePage === 'smc' ? (
