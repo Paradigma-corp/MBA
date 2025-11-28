@@ -347,8 +347,7 @@ export const computeCorrelations = (records, { normalized = false } = {}) => {
 export const transformToCategories = (records, { normalized = false } = {}) => {
   const mapped = ensureNormalized(records, normalized);
   const groups = mapped.reduce((acc, record) => {
-    const groupKey = record.businessLine;
-    if (!groupKey) return acc;
+    const groupKey = record.businessLine || 'Sin línea';
     if (!acc[groupKey]) {
       acc[groupKey] = [];
     }

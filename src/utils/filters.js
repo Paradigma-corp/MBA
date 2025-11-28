@@ -4,6 +4,7 @@ import {
   marginFromRecord,
   sellerFromRecord,
   yearFromRecord,
+  normalizeFinancialRecord,
 } from './dataParser.js';
 
 export const deriveFilterOptions = (records = []) => {
@@ -17,7 +18,9 @@ export const deriveFilterOptions = (records = []) => {
 
   const conditions = ['Todos', 'Nuevo', 'Usado'];
 
-  const margins = records.map((record) => marginFromRecord(record)).filter((value) => Number.isFinite(value));
+  const margins = records
+    .map((record) => normalizeFinancialRecord(record)?.margen)
+    .filter((value) => Number.isFinite(value));
   const marginRange = margins.length
     ? { min: Math.min(...margins), max: Math.max(...margins) }
     : { min: 0, max: 0 };
@@ -52,7 +55,8 @@ export const selectSample = (rows = [], f = createDefaultFilters()) =>
     .filter((r) => (f.condicion === 'Todos' ? true : conditionFromRecord(r) === f.condicion))
     .filter((r) => (f.vendedores.size ? f.vendedores.has(sellerFromRecord(r)) : true))
     .filter((r) => {
-      const margin = marginFromRecord(r);
+      const normalized = normalizeFinancialRecord(r);
+      const margin = Number.isFinite(normalized.margen) ? normalized.margen : marginFromRecord(r);
       return Number.isFinite(margin) && margin >= f.mMin && margin <= f.mMax;
     });
 
@@ -65,7 +69,7 @@ export const clampMarginRange = (filters, bounds) => ({
 export const deriveMarginBounds = (records = [], filters = createDefaultFilters()) => {
   const baseFilters = { ...filters, mMin: Number.NEGATIVE_INFINITY, mMax: Number.POSITIVE_INFINITY };
   const margins = selectSample(records, baseFilters)
-    .map((row) => marginFromRecord(row))
+    .map((row) => normalizeFinancialRecord(row)?.margen)
     .filter((value) => Number.isFinite(value));
   if (!margins.length) return { min: 0, max: 0 };
   return { min: Math.min(...margins), max: Math.max(...margins) };
