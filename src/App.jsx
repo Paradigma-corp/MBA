@@ -1026,100 +1026,101 @@ const App = () => {
               <BarChartComponent data={categories} />
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <div className="card border border-slate-200/80 shadow-md xl:col-span-2">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-base font-semibold text-slate-900">Dispersión ingreso vs margen</h3>
-                  <span className="text-xs text-slate-500">Bootstrap 95%</span>
+            <div className="card border border-slate-200/80 shadow-md">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-base font-semibold text-slate-900">Dispersión ingreso vs margen</h3>
+                <span className="text-xs text-slate-500">Bootstrap 95%</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveModal('dispersion')}
+                  className="text-xs text-celeste-700 hover:text-celeste-800"
+                >
+                  Ver popup
+                </button>
+              </div>
+              <ScatterPlot data={categories} />
+            </div>
+
+            <div className="card border border-slate-200/80 shadow-md space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
+                  <p className="text-xs text-slate-500">Bigotes P10–P90 · Banda IC95% mediana (bootstrap 2,000)</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white">
+                    <input
+                      type="checkbox"
+                      checked={showOutliers}
+                      onChange={(e) => setShowOutliers(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Outliers incluidos
+                  </label>
                   <button
                     type="button"
-                    onClick={() => setActiveModal('dispersion')}
+                    onClick={exportPng}
+                    className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
+                  >
+                    <Download size={14} /> PNG
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
+                  >
+                    <Download size={14} /> CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('boxplot')}
                     className="text-xs text-celeste-700 hover:text-celeste-800"
                   >
                     Ver popup
                   </button>
                 </div>
-                <ScatterPlot data={categories} />
               </div>
-              <div className="card border border-slate-200/80 shadow-md">
-                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-900">Distribución de márgenes</h3>
-                    <p className="text-xs text-slate-500">Bigotes P10–P90 · Banda IC95% mediana (bootstrap 2,000)</p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white">
-                      <input
-                        type="checkbox"
-                        checked={showOutliers}
-                        onChange={(e) => setShowOutliers(e.target.checked)}
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                      Outliers incluidos
-                    </label>
-                    <button
-                      type="button"
-                      onClick={exportPng}
-                      className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
-                    >
-                      <Download size={14} /> PNG
-                    </button>
-                    <button
-                      type="button"
-                      onClick={exportCsv}
-                      className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-700 bg-white hover:border-celeste-200"
-                    >
-                      <Download size={14} /> CSV
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveModal('boxplot')}
-                      className="text-xs text-celeste-700 hover:text-celeste-800"
-                    >
-                      Ver popup
-                    </button>
-                  </div>
-                </div>
-                <BoxPlot ref={chartRef} data={marginSummaries} showOutliers={showOutliers} />
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {marginSummaries.map((item) => (
-                    <div key={item.line} className="p-3 rounded-xl border border-slate-200 bg-slate-50/60">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{item.line}</p>
-                          <p className="text-[11px] text-slate-500">Años: {item.years.length ? item.years.join(', ') : '—'}</p>
-                        </div>
-                        <span className="text-[11px] px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700">N {item.n}</span>
+              <div className="border border-slate-200 rounded-2xl bg-white p-3" ref={chartRef}>
+                <BoxPlot data={marginSummaries} showOutliers={showOutliers} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {marginSummaries.map((item) => (
+                  <div key={item.line} className="p-3 rounded-xl border border-slate-200 bg-slate-50/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{item.line}</p>
+                        <p className="text-[11px] text-slate-500">Años: {item.years.length ? item.years.join(', ') : '—'}</p>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700">
-                        <div className="p-2 rounded-lg bg-white border border-slate-200">
-                          <p className="text-[10px] uppercase text-slate-500">Mediana</p>
-                          <p className="font-semibold text-slate-900">{formatCurrency(item.median)}</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-white border border-slate-200">
-                          <p className="text-[10px] uppercase text-slate-500">IQR</p>
-                          <p className="font-semibold text-slate-900">{formatCurrency(item.iqr)}</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-white border border-slate-200">
-                          <p className="text-[10px] uppercase text-slate-500">P90 - P10</p>
-                          <p className="font-semibold text-slate-900">{formatCurrency(item.pRange)}</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-white border border-slate-200">
-                          <p className="text-[10px] uppercase text-slate-500">CV robusto</p>
-                          <p className="font-semibold text-slate-900">{formatPercent(item.cvRobust)}</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-white border border-slate-200">
-                          <p className="text-[10px] uppercase text-slate-500">% outliers</p>
-                          <p className="font-semibold text-slate-900">{formatPercent(item.outlierPct / 100)}</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-white border border-slate-200">
-                          <p className="text-[10px] uppercase text-slate-500">IC95% mediana</p>
-                          <p className="font-semibold text-slate-900">{formatCurrency(item.ciLower)} – {formatCurrency(item.ciUpper)}</p>
-                        </div>
+                      <span className="text-[11px] px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-700">N {item.n}</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-700">
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">Mediana</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.median)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">IQR</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.iqr)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">P90 - P10</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.pRange)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">CV robusto</p>
+                        <p className="font-semibold text-slate-900">{formatPercent(item.cvRobust)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">% outliers</p>
+                        <p className="font-semibold text-slate-900">{formatPercent(item.outlierPct / 100)}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200">
+                        <p className="text-[10px] uppercase text-slate-500">IC95% mediana</p>
+                        <p className="font-semibold text-slate-900">{formatCurrency(item.ciLower)} – {formatCurrency(item.ciUpper)}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
             </div>
 
