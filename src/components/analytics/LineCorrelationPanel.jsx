@@ -22,14 +22,42 @@ const strengthLabel = (r) => {
 
 const formatR = (r) => (Number.isFinite(r) ? r.toFixed(2) : 'N/A');
 
+const lerp = (a, b, t) => a + (b - a) * t;
+
 const heatColor = (r) => {
   if (!Number.isFinite(r)) return 'rgb(226, 232, 240)';
   const clamped = Math.max(-1, Math.min(1, r));
-  const ratio = (clamped + 1) / 2;
-  const red = Math.round(41 + ratio * (16 - 41));
-  const green = Math.round(96 + ratio * (185 - 96));
-  const blue = Math.round(198 + ratio * (129 - 198));
+  const t = (clamped + 1) / 2; // 0→azul, 0.5→gris claro, 1→verde
+  const startNeg = { r: 59, g: 130, b: 246 }; // azul
+  const neutral = { r: 226, g: 232, b: 240 }; // gris claro
+  const startPos = { r: 34, g: 197, b: 94 }; // verde
+  let red;
+  let green;
+  let blue;
+  if (t < 0.5) {
+    const nt = t / 0.5;
+    red = Math.round(lerp(startNeg.r, neutral.r, nt));
+    green = Math.round(lerp(startNeg.g, neutral.g, nt));
+    blue = Math.round(lerp(startNeg.b, neutral.b, nt));
+  } else {
+    const pt = (t - 0.5) / 0.5;
+    red = Math.round(lerp(neutral.r, startPos.r, pt));
+    green = Math.round(lerp(neutral.g, startPos.g, pt));
+    blue = Math.round(lerp(neutral.b, startPos.b, pt));
+  }
   return `rgb(${red}, ${green}, ${blue})`;
+};
+
+const heatTextColor = (r) => {
+  if (!Number.isFinite(r)) return '#0f172a';
+  const bg = heatColor(r)
+    .replace('rgb(', '')
+    .replace(')', '')
+    .split(',')
+    .map((v) => parseInt(v.trim(), 10));
+  const [red, green, blue] = bg;
+  const luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+  return luminance < 0.55 ? '#ffffff' : '#0f172a';
 };
 
 const regularizedIncompleteBeta = (x, a, b) => {
@@ -326,7 +354,7 @@ const LineCorrelationPanel = ({ records = [] }) => {
         const y = startY + rIdx * gridSize;
         ctx.fillStyle = heatColor(cell.r);
         ctx.fillRect(x, y, gridSize - 8, gridSize - 8);
-        ctx.fillStyle = '#0f172a';
+        ctx.fillStyle = heatTextColor(cell.r);
         ctx.fillText(formatR(cell.r), x + 8, y + gridSize / 2);
       });
     });
@@ -469,7 +497,7 @@ const LineCorrelationPanel = ({ records = [] }) => {
                       <td key={`${row.line}-${availableLines[idx]}`} className="p-1">
                         <div
                           className="rounded-xl border border-slate-100 px-2 py-1 text-xs shadow-sm"
-                          style={{ backgroundColor: heatColor(cell.r) }}
+                          style={{ backgroundColor: heatColor(cell.r), color: heatTextColor(cell.r) }}
                           title={
                             Number.isFinite(cell.r) && cell.n >= 6
                               ? `r=${formatR(cell.r)}; p=${Number.isFinite(cell.p) ? cell.p.toFixed(3) : 'N/A'}; n=${cell.n}` +
@@ -478,15 +506,23 @@ const LineCorrelationPanel = ({ records = [] }) => {
                           }
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-slate-900">{formatR(cell.r)}</span>
-                            <span className="text-[10px] text-slate-700">{cell.n >= 6 ? strengthLabel(cell.r) : 'N/A'}</span>
+                            <span className="font-semibold" style={{ color: heatTextColor(cell.r) }}>
+                              {formatR(cell.r)}
+                            </span>
+                            <span className="text-[10px]" style={{ color: heatTextColor(cell.r) }}>
+                              {cell.n >= 6 ? strengthLabel(cell.r) : 'N/A'}
+                            </span>
                           </div>
-                          <div className="text-[10px] text-slate-600">
+                          <div className="text-[10px]" style={{ color: heatTextColor(cell.r) }}>
                             {cell.n >= 6
                               ? `p=${Number.isFinite(cell.p) ? cell.p.toFixed(3) : 'N/A'} • n=${cell.n}`
                               : 'n<6'}
                           </div>
-                          {cell.ci && <div className="text-[10px] text-slate-600">IC95% [{formatR(cell.ci[0])}, {formatR(cell.ci[1])}]</div>}
+                          {cell.ci && (
+                            <div className="text-[10px]" style={{ color: heatTextColor(cell.r) }}>
+                              IC95% [{formatR(cell.ci[0])}, {formatR(cell.ci[1])}]
+                            </div>
+                          )}
                         </div>
                       </td>
                     ))}
