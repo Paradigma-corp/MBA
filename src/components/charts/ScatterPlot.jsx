@@ -42,6 +42,24 @@ const ScatterPlot = ({ data }) => {
     };
   }, [baseStats, points.length]);
 
+  const paddedDomain = useMemo(() => {
+    if (!points.length) return null;
+    const xs = points.map((p) => p.x);
+    const ys = points.map((p) => p.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+
+    const padRange = (min, max) => {
+      const span = max - min;
+      const pad = span === 0 ? Math.abs(max || 1) * 0.05 : span * 0.05;
+      return [min - pad, max + pad];
+    };
+
+    return { x: padRange(minX, maxX), y: padRange(minY, maxY) };
+  }, [points]);
+
   const bootstrapBand = useMemo(() => {
     if (!regression || points.length < 3) return null;
 
@@ -107,30 +125,89 @@ const ScatterPlot = ({ data }) => {
     []
   );
 
+  const axisFmt = useMemo(
+    () =>
+      new Intl.NumberFormat('es-ES', {
+        maximumFractionDigits: 0,
+      }),
+    []
+  );
+
+  const currencyFmt = useMemo(
+    () =>
+      new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      }),
+    []
+  );
+
   return (
     <div className="space-y-3">
-      <div style={{ height: 320 }}>
+      <div style={{ height: 340 }}>
         <ResponsiveScatterPlot
           data={[{ id: 'categorias', data: points }]}
-          margin={{ top: 30, right: 40, bottom: 50, left: 60 }}
-          xScale={{ type: 'linear', min: 'auto', max: 'auto' }}
-          yScale={{ type: 'linear', min: 'auto', max: 'auto' }}
+          margin={{ top: 40, right: 48, bottom: 54, left: 68 }}
+          xScale={{
+            type: 'linear',
+            min: paddedDomain?.x[0] ?? 'auto',
+            max: paddedDomain?.x[1] ?? 'auto',
+          }}
+          yScale={{
+            type: 'linear',
+            min: paddedDomain?.y[0] ?? 'auto',
+            max: paddedDomain?.y[1] ?? 'auto',
+          }}
           blendMode="multiply"
           colors={['#0ea5e9']}
           nodeSize={12}
-          axisBottom={{ legend: 'Ingreso promedio', legendOffset: 36, legendPosition: 'middle' }}
-          axisLeft={{ legend: 'Margen promedio', legendOffset: -45, legendPosition: 'middle' }}
+          theme={{
+            axis: {
+              ticks: {
+                text: {
+                  fill: '#475569',
+                  fontSize: 12,
+                },
+              },
+              legend: {
+                text: {
+                  fill: '#334155',
+                  fontSize: 12,
+                  fontWeight: 600,
+                },
+              },
+            },
+            grid: {
+              line: {
+                stroke: '#e2e8f0',
+                strokeWidth: 1,
+              },
+            },
+          }}
+          axisBottom={{
+            legend: 'Ingreso promedio',
+            legendOffset: 38,
+            legendPosition: 'middle',
+            format: (v) => axisFmt.format(v),
+          }}
+          axisLeft={{
+            legend: 'Margen promedio',
+            legendOffset: -54,
+            legendPosition: 'middle',
+            format: (v) => axisFmt.format(v),
+          }}
           tooltip={({ node }) => (
-            <div className="bg-white shadow-sm rounded px-3 py-2 text-sm text-slate-800">
+            <div className="bg-white shadow-sm rounded px-3 py-2 text-sm text-slate-800 space-y-0.5">
               <p className="font-semibold">{node.data.label}</p>
-              <p>Ingreso: {node.data.xFormatted}</p>
-              <p>Margen: {node.data.yFormatted}</p>
+              <p>Ingreso: {currencyFmt.format(node.data.x)}</p>
+              <p>Margen: {currencyFmt.format(node.data.y)}</p>
             </div>
           )}
           layers={[
             'grid',
             'axes',
-            ({ xScale, yScale }) =>
+            ({ xScale, yScale, innerWidth }) =>
               bootstrapBand ? (
                 <g>
                   <path
@@ -139,18 +216,28 @@ const ScatterPlot = ({ data }) => {
                         L ${xScale(bootstrapBand.x2)} ${yScale(bootstrapBand.lowerY2)}
                         L ${xScale(bootstrapBand.x1)} ${yScale(bootstrapBand.lowerY1)} Z`}
                     fill="#0ea5e9"
-                    opacity={0.08}
+                    opacity={0.12}
                   />
                   <line
                     x1={xScale(bootstrapBand.x1)}
                     y1={yScale(bootstrapBand.centerY1)}
                     x2={xScale(bootstrapBand.x2)}
                     y2={yScale(bootstrapBand.centerY2)}
-                    stroke="#0ea5e9"
+                    stroke="#0284c7"
                     strokeWidth={2}
-                    strokeDasharray="4 3"
-                    opacity={0.9}
+                    strokeDasharray="5 4"
+                    opacity={0.95}
                   />
+                  <text
+                    x={innerWidth - 10}
+                    y={16}
+                    textAnchor="end"
+                    fill="#0f172a"
+                    fontSize={12}
+                    fontWeight={600}
+                  >
+                    Banda bootstrap 95%
+                  </text>
                 </g>
               ) : null,
             'nodes',
@@ -158,6 +245,11 @@ const ScatterPlot = ({ data }) => {
             'mesh',
             'legends',
           ]}
+          xFormat={(v) => axisFmt.format(v)}
+          yFormat={(v) => axisFmt.format(v)}
+          nodeBorderColor="#0369a1"
+          nodeBorderWidth={1}
+          motionConfig="gentle"
         />
       </div>
 
