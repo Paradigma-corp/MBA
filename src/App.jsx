@@ -529,20 +529,18 @@ const App = () => {
               <Menu size={18} />
             </button>
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-white text-black font-semibold flex items-center justify-center">
+              <div className="h-10 w-10 rounded-2xl bg-white text-black font-semibold flex items-center justify-center shadow-sm shadow-black/20">
                 D
               </div>
               <div>
-                <p className="text-xs text-slate-200 uppercase tracking-[0.18em]">Divemotor</p>
-                <p className="text-sm font-semibold">Analytics & Fleet</p>
+                <p className="text-xs text-slate-200 uppercase tracking-[0.18em]">Divemotor Analytics</p>
+                <p className="text-sm font-semibold text-white">Suite ejecutiva</p>
               </div>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-6 text-sm">
-            <span className="hover:text-celeste-200 cursor-pointer">Vehículos</span>
-            <span className="hover:text-celeste-200 cursor-pointer">Camiones</span>
-            <span className="hover:text-celeste-200 cursor-pointer">Vans</span>
-            <span className="hover:text-celeste-200 cursor-pointer">Buses</span>
+          <div className="hidden md:flex items-center gap-3 text-xs text-slate-200">
+            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15">Máscaras unificadas</span>
+            <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15">Indicadores en vivo</span>
           </div>
         </div>
       </div>
@@ -563,15 +561,22 @@ const App = () => {
         </div>
       </div>
       <div className="flex min-h-screen">
-        <aside className="hidden lg:flex w-64 bg-gradient-to-b from-black/75 via-black/65 to-black/75 text-white backdrop-blur-2xl border-r border-white/15 flex-col p-5 gap-6 shadow-2xl shadow-black/50 saturate-150">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-black to-celeste-600 text-white flex items-center justify-center shadow-md shadow-celeste-500/40">
-              <Home size={20} />
+        <aside className="hidden lg:flex w-72 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white backdrop-blur-2xl border-r border-white/10 flex-col p-5 gap-6 shadow-2xl shadow-black/50">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-celeste-500 to-celeste-700 text-white flex items-center justify-center shadow-md shadow-celeste-500/50">
+                <Home size={20} />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase text-white/60">Paneles</p>
+                <p className="font-semibold leading-tight">Analítica integrada</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs text-white/70">Divemotor</p>
-              <p className="font-semibold">Executive Suite</p>
-            </div>
+            <span className="px-2 py-1 rounded-full bg-white/10 text-[11px] uppercase tracking-[0.14em] border border-white/15">Live</span>
+          </div>
+          <div className="text-[12px] text-white/70 bg-white/5 border border-white/10 rounded-2xl p-3">
+            <p className="font-semibold text-white">Acceso rápido</p>
+            <p className="mt-1 text-white/70">Selecciona un panel. El filtro activo es compartido.</p>
           </div>
           <nav className="space-y-1">
             {nav.map((item) => {
@@ -582,14 +587,14 @@ const App = () => {
                   key={item.key}
                   type="button"
                   onClick={() => setActivePage(item.key)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm transition border ${
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm transition border text-left ${
                     active
-                      ? 'bg-white text-black border-white shadow-lg shadow-celeste-500/20'
+                      ? 'bg-white text-slate-900 border-white shadow-lg shadow-celeste-500/20'
                       : 'text-white/85 hover:bg-white/10 hover:text-white border-white/5'
                   }`}
                 >
                   <Icon size={16} />
-                  <span className="font-medium">{item.label}</span>
+                  <span className="font-medium leading-tight">{item.label}</span>
                 </button>
               );
             })}
