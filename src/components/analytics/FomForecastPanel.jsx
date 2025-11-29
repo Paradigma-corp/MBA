@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowUpRight, BarChart3, Download, Info, LineChart, SlidersHorizontal } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, BarChart3, ChevronDown, Download, Info, LineChart, SlidersHorizontal } from 'lucide-react';
 import {
   businessLineFromRecord,
   monthFromRecord,
@@ -8,7 +8,7 @@ import {
   sellerFromRecord,
   yearFromRecord,
 } from '../../utils/dataParser.js';
-import { formatCurrency, formatNumber } from '../../utils/formatters.js';
+import { formatNumber } from '../../utils/formatters.js';
 import { fitNegBinMoment, negbinPAtLeastK, poissonPAtLeastK } from '../../utils/countingModel.js';
 
 const quantile = (arr = [], q = 0.5) => {
@@ -50,13 +50,24 @@ const unitsFromRecord = (record = {}) =>
 
 const currencyFromRecord = (record = {}, key) => parseNumber(record[key]) || 0;
 
-const colorForProb = (p) => {
-  if (p >= 0.7) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+const colorForProb = (p, strongThreshold = 0.7) => {
+  if (p >= strongThreshold) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+  if (p >= 0.4) return 'text-amber-700 bg-amber-50 border-amber-200';
+  return 'text-rose-700 bg-rose-50 border-rose-200';
+};
+
+const tableBadgeColor = (p) => {
+  if (p >= 0.8) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
   if (p >= 0.4) return 'text-amber-700 bg-amber-50 border-amber-200';
   return 'text-rose-700 bg-rose-50 border-rose-200';
 };
 
 const formatProb = (p) => `${(p * 100).toFixed(1)}%`;
+
+const formatUsd = (value) =>
+  Number.isFinite(value)
+    ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '—';
 
 const samplePoisson = (lambda) => {
   const L = Math.exp(-lambda);
@@ -123,24 +134,11 @@ const SliderControl = ({ label, value, onChange, min = 0, max = 1, step = 0.05, 
   <label className="flex flex-col gap-1 text-sm text-slate-700">
     <div className="flex items-center justify-between">
       <span className="font-medium">{label}</span>
-      <span className="text-xs text-slate-500">{value.toFixed(2)}</span>
+      <span className="text-xs text-slate-500">{Math.round(value * 100)}%</span>
     </div>
     <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} />
     {hint && <span className="text-[11px] text-slate-500">{hint}</span>}
   </label>
-);
-
-const SemaforoBadge = ({ value, label }) => (
-  <div className={`px-3 py-2 rounded-xl border ${colorForProb(value)} text-xs font-semibold inline-flex items-center gap-2`}>
-    <span className="h-2.5 w-2.5 rounded-full bg-current" />
-    <span>{label}: {formatProb(value)}</span>
-  </div>
-);
-
-const StatPill = ({ label, children }) => (
-  <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700">
-    {label}: <span className="font-mono text-slate-900">{children}</span>
-  </div>
 );
 
 const TopActionCard = ({ title, subtitle, children }) => (
@@ -159,6 +157,7 @@ const TopActionCard = ({ title, subtitle, children }) => (
 
 const FomForecastPanel = ({ records = [] }) => {
   const normalized = useMemo(() => normalizeRecords(records), [records]);
+  const [showTech, setShowTech] = useState(false);
   const availableYears = useMemo(() => {
     const years = normalized.map((row) => yearFromRecord(row)).filter((v) => Number.isFinite(v));
     return Array.from(new Set(years)).sort((a, b) => a - b);
@@ -477,121 +476,156 @@ const FomForecastPanel = ({ records = [] }) => {
     <div className="space-y-6">
       <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="space-y-1">
             <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Pronóstico de fin de mes</p>
             <h2 className="text-2xl font-semibold text-slate-900">FOM y semáforo por línea y vendedor</h2>
             <p className="text-sm text-slate-600">
-              FOM: acumulado del mes + remanente simulado. Exposición del mes E_parcial controlada por el usuario.
+              Proyecta el cierre del mes combinando lo vendido hasta hoy + una simulación del resto del mes.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
-            <Info size={14} /> Conteos: Poisson/NB con E_restante. Montos: Monte Carlo (remuestreo de margen_unit). B=
-            {mcRuns.toLocaleString()}.
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowTech((prev) => !prev)}
+            className="text-xs inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:border-celeste-200"
+          >
+            <Info size={14} /> Ver detalle técnico
+          </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50">
-            <label className="text-xs uppercase text-slate-500">Mes activo</label>
-            <div className="flex items-center gap-2 mt-2">
-              <select
-                className="px-3 py-2 rounded-xl border border-slate-200 text-sm"
-                value={activeYear}
-                onChange={(e) => setActiveYear(Number(e.target.value))}
-              >
-                {availableYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="px-3 py-2 rounded-xl border border-slate-200 text-sm"
-                value={activeMonth}
-                onChange={(e) => setActiveMonth(Number(e.target.value))}
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                  <option key={month} value={month}>
-                    Mes {month}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {showTech && (
+          <div className="mt-3 p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-700 space-y-1">
+            <p>
+              Conteos: Poisson/NB con E_restante. Montos: Monte Carlo (remuestreo de margen_unit). B=
+              {mcRuns.toLocaleString()}.
+            </p>
+            <p>La exposición del mes E_parcial la define el usuario y controla cuánto se simula del resto del mes.</p>
           </div>
-          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
-            <SliderControl
-              label="Exposición parcial E_parcial"
-              value={exposure}
-              onChange={setExposure}
-              hint="Sugerencias: 0.25 semana 1 · 0.50 mitad · 0.75 semana 3 · 1.00 mes cerrado"
-              step={0.05}
-            />
-            <StatPill label="E_restante">{(1 - exposure).toFixed(2)}</StatPill>
+        )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Paso 1 – Configurar el mes</p>
+              <SlidersHorizontal size={16} className="text-slate-400" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-800">Mes a proyectar</label>
+              <div className="flex items-center gap-2">
+                <select
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-sm"
+                  value={activeYear}
+                  onChange={(e) => setActiveYear(Number(e.target.value))}
+                >
+                  {availableYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-sm"
+                  value={activeMonth}
+                  onChange={(e) => setActiveMonth(Number(e.target.value))}
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                    <option key={month} value={month}>
+                      Mes {month}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <SliderControl
+                label="Progreso del mes"
+                value={exposure}
+                onChange={setExposure}
+                hint="Ejemplo: 0.50 = ha pasado la mitad del mes."
+                step={0.05}
+              />
+              <p className="text-xs text-slate-600">
+                Resto del mes a simular: {Math.round((1 - exposure) * 100)}%
+              </p>
+            </div>
           </div>
           <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs uppercase text-slate-500">Ventana y simulación</p>
+              <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Paso 2 – Precisión de la simulación</p>
               <SlidersHorizontal size={16} className="text-slate-400" />
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              {[6, 9, 12].map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setWindowMonths(k)}
-                  className={`px-3 py-1.5 rounded-lg border ${
-                    windowMonths === k
-                      ? 'bg-black text-white border-black'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200'
-                  }`}
-                >
-                  {k} meses
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              {[1000, 5000, 10000].map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setMcRuns(k)}
-                  className={`px-3 py-1.5 rounded-lg border ${
-                    mcRuns === k
-                      ? 'bg-celeste-600 text-white border-celeste-600'
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200'
-                  }`}
-                >
-                  {k.toLocaleString()} corridas
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-600">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={includeOutliers}
-                  onChange={(e) => setIncludeOutliers(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                Incluir outliers
-              </label>
-              <div className="flex items-center gap-1">
-                <span>Regla:</span>
-                {[{ label: 'P10–P90', value: 'pRange' }, { label: 'Tukey 1.5·IQR', value: 'tukey' }].map((option) => (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs">
+                {[6, 9, 12].map((k) => (
                   <button
-                    key={option.value}
+                    key={k}
                     type="button"
-                    onClick={() => setOutlierRule(option.value)}
-                    className={`px-2 py-1 rounded-lg border ${
-                      outlierRule === option.value
-                        ? 'bg-white text-black border-black'
+                    onClick={() => setWindowMonths(k)}
+                    className={`px-3 py-1.5 rounded-lg border ${
+                      windowMonths === k
+                        ? 'bg-black text-white border-black'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200'
                     }`}
                   >
-                    {option.label}
+                    {k} meses
                   </button>
                 ))}
               </div>
+              <p className="text-[11px] text-slate-500">Período histórico usado para estimar ventas.</p>
             </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs">
+                {[1000, 5000, 10000].map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setMcRuns(k)}
+                    className={`px-3 py-1.5 rounded-lg border ${
+                      mcRuns === k
+                        ? 'bg-celeste-600 text-white border-celeste-600'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200'
+                    }`}
+                  >
+                    {k.toLocaleString()} escenarios simulados
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-500">Número de escenarios simulados.</p>
+            </div>
+            <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+              <summary className="flex items-center justify-between cursor-pointer select-none">
+                <span>Opciones avanzadas</span>
+                <ChevronDown size={14} className="text-slate-500" />
+              </summary>
+              <div className="mt-2 space-y-2 text-xs text-slate-600">
+                <p>
+                  Por defecto excluimos operaciones extremas para evitar que un solo negocio distorsione el pronóstico.
+                </p>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={includeOutliers}
+                    onChange={(e) => setIncludeOutliers(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Incluir outliers
+                </label>
+                <div className="flex flex-wrap items-center gap-1">
+                  <span>Regla:</span>
+                  {[{ label: 'P10–P90', value: 'pRange' }, { label: 'Tukey 1.5·IQR', value: 'tukey' }].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setOutlierRule(option.value)}
+                      className={`px-2 py-1 rounded-lg border ${
+                        outlierRule === option.value
+                          ? 'bg-white text-black border-black'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       </div>
@@ -599,11 +633,12 @@ const FomForecastPanel = ({ records = [] }) => {
       <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Metas mensuales por línea</p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Paso 3 – Revisar o editar metas del mes</p>
             <h3 className="text-lg font-semibold text-slate-900">Unidades, ingresos y margen editables</h3>
           </div>
           <button
             type="button"
+            title="Vuelve a las metas sugeridas por el modelo según histórico."
             onClick={() => setMetas(buildMetaState(lines, trainingMonthly))}
             className="text-sm text-celeste-700 hover:text-celeste-800"
           >
@@ -615,9 +650,9 @@ const FomForecastPanel = ({ records = [] }) => {
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-200">
                 <th className="px-3 py-2">Línea</th>
-                <th className="px-3 py-2">k_unid_mes</th>
-                <th className="px-3 py-2">meta_ing_mes</th>
-                <th className="px-3 py-2">meta_mar_mes</th>
+                <th className="px-3 py-2">Meta unidades (mes)</th>
+                <th className="px-3 py-2">Meta ingresos (mes)</th>
+                <th className="px-3 py-2">Meta margen (mes)</th>
               </tr>
             </thead>
             <tbody>
@@ -663,38 +698,44 @@ const FomForecastPanel = ({ records = [] }) => {
           <div key={line.linea} className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">{line.linea}</p>
-                <h4 className="text-lg font-semibold text-slate-900">Semáforo FOM</h4>
-                <p className="text-xs text-slate-500">λ̂ {formatNumber(line.mean, { maximumFractionDigits: 2 })} · {line.family}</p>
+                <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">{line.linea} – Semáforo FOM</p>
+                <h4 className="text-lg font-semibold text-slate-900">Pronóstico al cierre del mes</h4>
+                <div
+                  className={`mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-xl border ${colorForProb(line.probUnits)}`}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-current" />
+                  <p className="text-sm font-semibold text-slate-900">
+                    Probabilidad de cumplir la meta: {formatProb(line.probUnits)}
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <SemaforoBadge value={line.probUnits} label="Unidades" />
-                <SemaforoBadge value={line.probIng} label="Ingresos" />
-                <SemaforoBadge value={line.probMar} label="Margen" />
-              </div>
+              <button
+                type="button"
+                title="El modelo usa Poisson o Binomial Negativa según la dispersión histórica de las ventas."
+                className="h-9 w-9 rounded-full border border-slate-200 bg-slate-50 inline-flex items-center justify-center text-slate-600"
+              >
+                <Info size={16} />
+              </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm text-slate-700">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <p className="text-[11px] uppercase text-slate-500">N_FOM</p>
-                <p className="font-semibold text-slate-900">P50 {formatNumber(line.nP50, { maximumFractionDigits: 1 })}</p>
-                <p className="text-xs text-slate-500">[{formatNumber(line.nP10)} – {formatNumber(line.nP90)}]</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <p className="text-[11px] uppercase text-slate-500">Ing_FOM</p>
-                <p className="font-semibold text-slate-900">P50 {formatCurrency(line.ingP50)}</p>
-                <p className="text-xs text-slate-500">[{formatCurrency(line.ingP10)} – {formatCurrency(line.ingP90)}]</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <p className="text-[11px] uppercase text-slate-500">Mar_FOM</p>
-                <p className="font-semibold text-slate-900">P50 {formatCurrency(line.marP50)}</p>
-                <p className="text-xs text-slate-500">[{formatCurrency(line.marP10)} – {formatCurrency(line.marP90)}]</p>
-              </div>
+            <div className="space-y-2 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">
+                Unidades esperadas (P50): {formatNumber(line.nP50, { maximumFractionDigits: 1 })}{' '}
+                <span className="text-sm text-slate-600">[{formatNumber(line.nP10)}–{formatNumber(line.nP90)}]</span>
+              </p>
+              <p className="font-semibold text-slate-900">
+                Ingresos esperados (P50): {formatUsd(line.ingP50)}{' '}
+                <span className="text-sm text-slate-600">[{formatUsd(line.ingP10)}–{formatUsd(line.ingP90)}]</span>
+              </p>
+              <p className="font-semibold text-slate-900">
+                Margen esperado (P50): {formatUsd(line.marP50)}{' '}
+                <span className="text-sm text-slate-600">[{formatUsd(line.marP10)}–{formatUsd(line.marP90)}]</span>
+              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-              <StatPill label="E_restante">{(1 - exposure).toFixed(2)}</StatPill>
-              <StatPill label="B corridas">{mcRuns.toLocaleString()}</StatPill>
-              <StatPill label="Outliers">{includeOutliers ? 'Incluidos' : outlierRule === 'pRange' ? 'P10–P90' : 'Tukey'}</StatPill>
-            </div>
+            <p className="text-[11px] text-slate-600">
+              Histórico: {windowMonths} meses · Progreso del mes: {Math.round(exposure * 100)}% · Simulaciones: {mcRuns.toLocaleString()}
+              {' '}
+              · Outliers: {includeOutliers ? 'incluidos' : outlierRule === 'pRange' ? 'P10–P90' : 'Tukey'}
+            </p>
           </div>
         ))}
       </div>
@@ -703,7 +744,8 @@ const FomForecastPanel = ({ records = [] }) => {
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Tabla por vendedor</p>
-            <h3 className="text-lg font-semibold text-slate-900">Probabilidades y observados</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Pronóstico de cierre por vendedor</h3>
+            <p className="text-xs text-slate-500">Cada fila muestra el pronóstico de cierre del mes para un vendedor, basado en su histórico y lo que lleva vendido este mes.</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <BarChart3 size={14} /> Ordenable y exportable
@@ -715,11 +757,26 @@ const FomForecastPanel = ({ records = [] }) => {
               <tr className="text-left text-slate-500 border-b border-slate-200">
                 <th className="px-3 py-2">Vendedor</th>
                 <th className="px-3 py-2">Línea</th>
-                <th className="px-3 py-2 text-right">n_obs</th>
-                <th className="px-3 py-2 text-right">λ̂</th>
-                <th className="px-3 py-2 text-right">p≥k_unid</th>
-                <th className="px-3 py-2 text-right">Mar_obs</th>
-                <th className="px-3 py-2 text-right">Ing_obs</th>
+                <th className="px-3 py-2 text-right">
+                  Meses con ventas
+                  <Info size={12} className="inline ml-1 text-slate-400" title="Solo cuenta los meses donde realmente vendió." />
+                </th>
+                <th className="px-3 py-2 text-right">
+                  Ventas promedio/mes
+                  <Info size={12} className="inline ml-1 text-slate-400" title="Promedio anual según su historial." />
+                </th>
+                <th className="px-3 py-2 text-right">
+                  Prob. cumplir meta de unidades
+                  <Info size={12} className="inline ml-1 text-slate-400" title="Probabilidad simulada de llegar a la meta de unidades." />
+                </th>
+                <th className="px-3 py-2 text-right">
+                  Margen acumulado (mes)
+                  <Info size={12} className="inline ml-1 text-slate-400" title="Margen observado del mes activo." />
+                </th>
+                <th className="px-3 py-2 text-right">
+                  Ingresos acumulados (mes)
+                  <Info size={12} className="inline ml-1 text-slate-400" title="Ingresos observados del mes activo." />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -730,10 +787,13 @@ const FomForecastPanel = ({ records = [] }) => {
                   <td className="px-3 py-2 text-right text-slate-700">{formatNumber(item.observed.n_obs)}</td>
                   <td className="px-3 py-2 text-right text-slate-700">{formatNumber(item.mean, { maximumFractionDigits: 2 })}</td>
                   <td className="px-3 py-2 text-right">
-                    <SemaforoBadge value={item.probUnits} label="p≥k" />
+                    <div className={`px-3 py-1.5 rounded-xl border ${tableBadgeColor(item.probUnits)} text-xs font-semibold inline-flex items-center gap-2 justify-end min-w-[130px]`}>
+                      <span className="h-2.5 w-2.5 rounded-full bg-current" />
+                      <span>{formatProb(item.probUnits)}</span>
+                    </div>
                   </td>
-                  <td className="px-3 py-2 text-right text-slate-700">{formatCurrency(item.observed.mar_obs)}</td>
-                  <td className="px-3 py-2 text-right text-slate-700">{formatCurrency(item.observed.ing_obs)}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{formatUsd(item.observed.mar_obs)}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{formatUsd(item.observed.ing_obs)}</td>
                 </tr>
               ))}
             </tbody>
@@ -742,7 +802,11 @@ const FomForecastPanel = ({ records = [] }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <TopActionCard title="Empuje de mix" subtitle="Top-3 modelos con mayor margen unitario" icon={LineChart}>
+        <TopActionCard
+          title="Empuje de mix"
+          subtitle="Modelos donde sumar 1–3 unidades mejora más el margen del mes."
+          icon={LineChart}
+        >
           {actions.mix.map((line) => (
             <div key={line.linea} className="p-3 rounded-xl bg-slate-50 border border-slate-200 mb-2">
               <p className="text-xs uppercase text-slate-500">{line.linea}</p>
@@ -752,7 +816,7 @@ const FomForecastPanel = ({ records = [] }) => {
                     <li key={item.modelo} className="flex items-center justify-between">
                       <span className="font-semibold text-slate-900">{item.modelo}</span>
                       <span className="text-xs text-slate-500">
-                        +{item.delta} unid · Δ$ {formatCurrency(item.impacto)}
+                        +{item.delta} unid · Δ$ {formatUsd(item.impacto)}
                       </span>
                     </li>
                   ))}
@@ -764,7 +828,10 @@ const FomForecastPanel = ({ records = [] }) => {
           ))}
         </TopActionCard>
 
-        <TopActionCard title="Corte de fugas" subtitle="Ventas con margen_unit bajo (P10)">
+        <TopActionCard
+          title="Corte de fugas"
+          subtitle="Ventas con margen muy bajo donde se puede recuperar valor en precio o mix."
+        >
           {actions.fugas.length ? (
             <ul className="space-y-2 text-sm text-slate-700">
               {actions.fugas.map((item) => (
@@ -773,7 +840,7 @@ const FomForecastPanel = ({ records = [] }) => {
                     <span className="font-semibold text-slate-900">{item.modelo}</span>
                     <span className="text-xs text-slate-500">{item.linea} · {item.vendedor}</span>
                   </div>
-                  <p className="text-xs text-slate-500">Margen_unit {formatCurrency(item.marginUnit)} · Δ$ recuperable {formatCurrency(item.recuperable)}</p>
+                  <p className="text-xs text-slate-500">Margen_unit {formatUsd(item.marginUnit)} · Δ$ recuperable {formatUsd(item.recuperable)}</p>
                 </li>
               ))}
             </ul>
@@ -782,7 +849,10 @@ const FomForecastPanel = ({ records = [] }) => {
           )}
         </TopActionCard>
 
-        <TopActionCard title="Enfoque de vendedor" subtitle="Reasignar oportunidades a perfiles con p_uni ≥ 0.60">
+        <TopActionCard
+          title="Enfoque de vendedor"
+          subtitle="Vendedores con alta probabilidad de cerrar más si se les reasignan casos."
+        >
           {actions.enfoque.length ? (
             <ul className="space-y-2 text-sm text-slate-700">
               {actions.enfoque.map((item) => (
@@ -791,7 +861,10 @@ const FomForecastPanel = ({ records = [] }) => {
                     <span className="font-semibold text-slate-900">{item.vendedor}</span>
                     <span className="text-xs text-slate-500">{item.linea}</span>
                   </div>
-                  <p className="text-xs text-slate-500">Precisión {formatProb(item.probUnits)} · Potencial ΔP simple moviendo {formatNumber(item.impacto, { maximumFractionDigits: 1 })} ops</p>
+                  <p className="text-xs text-slate-500">
+                    Precisión {formatProb(item.probUnits)} · Mover {formatNumber(item.impacto, { maximumFractionDigits: 1 })} oportunidades ↑ ~
+                    {formatNumber(item.impacto, { maximumFractionDigits: 1 })} puntos de probabilidad de cumplir la meta.
+                  </p>
                 </li>
               ))}
             </ul>
