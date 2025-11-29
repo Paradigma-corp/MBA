@@ -1,20 +1,15 @@
 import React, { useMemo, useState } from 'react';
 import {
   BookOpen,
-  CheckCircle2,
   CloudDownload,
   FileText,
   HelpCircle,
   LayoutDashboard,
   Network,
-  Presentation,
-  Route,
   Server,
   ShieldCheck,
   Sparkles,
-  TrendingUp,
 } from 'lucide-react';
-import { formatMillionsUSD, formatPercent } from '../../utils/formatters.js';
 import { businessLineFromRecord, conditionFromRecord, yearFromRecord } from '../../utils/dataParser.js';
 
 const Pill = ({ label, tone = 'info' }) => {
@@ -213,29 +208,6 @@ const GovernanceList = ({ items }) => (
   </div>
 );
 
-const DemoGuide = ({ steps, onNavigate }) => (
-  <ol className="list-decimal list-inside space-y-2 text-sm text-slate-700">
-    {steps.map((step) => (
-      <li key={step.title} className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 size={16} className="text-emerald-600" />
-          <p className="font-semibold text-slate-900">{step.title}</p>
-        </div>
-        <p className="text-slate-600">{step.body}</p>
-        {step.link && (
-          <button
-            type="button"
-            onClick={() => onNavigate(step.link)}
-            className="inline-flex items-center gap-1 text-celeste-700 text-xs font-semibold hover:underline"
-          >
-            Abrir módulo
-          </button>
-        )}
-      </li>
-    ))}
-  </ol>
-);
-
 const TechnicalIntroPage = ({
   records = [],
   filters,
@@ -364,47 +336,7 @@ const TechnicalIntroPage = ({
       title: 'Correlaciones',
       body: 'Meses alineados, n_meses<6 → N/A, IC95% bootstrap. Auditoría de parámetros por ejecución.',
     },
-    {
-      title: 'Trazabilidad y auditoría',
-      body: 'Cada PNG/CSV incluye pie APA y parámetros (K/E/B/outliers/metas/familia) con timestamp.',
-    },
   ];
-
-  const demoSteps = [
-    {
-      title: 'Conteo: fijar k por línea',
-      body: 'Mostrar P≥k y priorización A/B/C por vendedor. Útil para metas operativas.',
-      link: 'counting',
-    },
-    {
-      title: 'SMC: mover slider de meta',
-      body: 'Visualizar cómo cambia p̂ y el rango P10–P90 con trimming activo.',
-      link: 'smc',
-    },
-    {
-      title: 'Mix: rebalanceo X=5',
-      body: 'Ejecutar plan rápido y leer Δ$ margen respetando cap_m y shares.',
-      link: 'mix',
-    },
-    {
-      title: 'FOM: ajustar E_parcial',
-      body: 'Actualizar exposición parcial del mes y leer semáforos por línea.',
-      link: 'fom',
-    },
-    {
-      title: 'Correlaciones: heatmap y 1 vs conjunto',
-      body: 'Abrir matriz por métrica y diagnóstico línea vs conjunto (margen).',
-      link: 'correlations',
-    },
-  ];
-
-  const aggregated = useMemo(() => {
-    const totalIngresos = records.reduce((acc, row) => acc + (row.ingresos || 0), 0);
-    const totalCostos = records.reduce((acc, row) => acc + (row.costos || 0), 0);
-    const totalMargen = records.reduce((acc, row) => acc + (row.margen || 0), 0);
-    const marginPct = totalIngresos ? (totalMargen / totalIngresos) * 100 : 0;
-    return { totalIngresos, totalCostos, totalMargen, marginPct };
-  }, [records]);
 
   const presentationClasses = presentationMode ? 'text-[17px] leading-8' : '';
 
@@ -523,59 +455,6 @@ const TechnicalIntroPage = ({
         </div>
       </Section>
 
-      <Section
-        title="Guía de navegación (demo sugerida)"
-        actions={
-          <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-            <Pill label={`Ingresos: ${formatMillionsUSD(aggregated.totalIngresos)}`} />
-            <Pill label={`Costos: ${formatMillionsUSD(aggregated.totalCostos)}`} />
-            <Pill label={`Margen: ${formatMillionsUSD(aggregated.totalMargen)}`} />
-            <Pill label={`Margen medio: ${formatPercent(aggregated.marginPct)}`} tone="success" />
-          </div>
-        }
-      >
-        <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-4">
-          <div className="p-4 border border-slate-200 rounded-2xl bg-white shadow-sm">
-            <DemoGuide steps={demoSteps} onNavigate={onNavigate} />
-          </div>
-          <div className="p-4 border border-slate-200 rounded-2xl bg-white shadow-sm space-y-3">
-            <div className="flex items-center gap-2 text-slate-700">
-              <Presentation size={18} />
-              <p className="font-semibold">Modo presentación y export</p>
-            </div>
-            <p className="text-sm text-slate-600">
-              Toggle “Modo Presentación”: tipografía XL, oculta tooltips técnicos. Botón “Exportar Introducción (PDF)” captura la
-              pestaña completa con título, secciones, diagrama y pies APA.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
-                <Route size={16} className="text-celeste-600 mt-1" />
-                <div>
-                  <p className="font-semibold">Navegación rápida</p>
-                  <p className="text-slate-600">Usa los botones “Abrir módulo” para saltar a Conteo, SMC, Mix, FOM o Correlaciones.</p>
-                </div>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
-                <TrendingUp size={16} className="text-emerald-600 mt-1" />
-                <div>
-                  <p className="font-semibold">Exportables con pies</p>
-                  <p className="text-slate-600">PDF en A4, márgenes APA y numeración de figuras/tablas. JSON de trazabilidad opcional.</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-600 space-y-1">
-              <div className="flex items-center gap-2 text-slate-700">
-                <ShieldCheck size={16} />
-                <p className="font-semibold">Gobernanza</p>
-              </div>
-              <p>
-                Reproducibilidad: hoja de parámetros y JSON de trazabilidad por ejecución. Auditoría: cada PNG/CSV lleva pie:
-                “Fuente: BBDD 2022–2025 H1. Parámetros: […]”.
-              </p>
-            </div>
-          </div>
-        </div>
-      </Section>
     </div>
   );
 };
