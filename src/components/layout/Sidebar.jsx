@@ -4,7 +4,7 @@ import { Repeat, Settings2 } from 'lucide-react';
 const Sidebar = ({ config, setConfig, bootstrapIterations, setBootstrapIterations, onReset }) => {
   return (
     <aside className="card w-full lg:w-80 h-max sticky top-4 p-0 overflow-hidden">
-      <div className="bg-gradient-to-r from-black to-celeste-600 text-white px-5 py-4 flex items-center gap-3">
+      <div className="bg-gradient-to-br from-black via-neutral-900 to-slate-800 text-white px-5 py-4 flex items-center gap-3">
         <div className="h-10 w-10 rounded-2xl bg-white/15 flex items-center justify-center backdrop-blur-sm">
           <Settings2 size={18} />
         </div>
