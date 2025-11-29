@@ -26,7 +26,7 @@ import {
   summarizeDiff,
 } from '../../utils/countingModel.js';
 
-const defaultExposure = { 2022: 1, 2023: 1, 2024: 1, 2025: 1 };
+const defaultExposure = { 2022: 1, 2023: 1, 2024: 1 };
 
 const ScenarioSlider = ({ label, value, onChange, min, max, step, suffix = '' }) => (
   <label className="flex flex-col gap-1 text-sm text-slate-700">
@@ -77,7 +77,6 @@ const sanitizeExposure = (raw = {}) => ({
   2022: safeExposure(raw[2022] ?? 1),
   2023: safeExposure(raw[2023] ?? 1),
   2024: safeExposure(raw[2024] ?? 1),
-  2025: safeExposure(raw[2025] ?? 1),
 });
 
 const scenarioName = (label, horizon, umbralA, umbralB, family) =>
@@ -305,7 +304,7 @@ const copyTable = (tableSummary) => {
 };
 
 const exportImages = (lineEntries, stackedSegments) => {
-  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: 2022–2025 H1. Elaboración propia.';
+  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: 2022–2024. Elaboración propia.';
   const createCanvasDownload = (title, bars) => {
     if (!bars.length) return;
     const width = 640;

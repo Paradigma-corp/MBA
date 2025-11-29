@@ -90,10 +90,10 @@ const extractYear = (value) => {
   const match = value.toString().match(/20\d{2}/);
   if (match) {
     const numeric = Number(match[0]);
-    if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
+    if ([2022, 2023, 2024].includes(numeric)) return numeric;
   }
   const numeric = Number(value);
-  if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
+  if ([2022, 2023, 2024].includes(numeric)) return numeric;
   return undefined;
 };
 
@@ -217,7 +217,7 @@ const familyDecision = (mu, sigma2, familyOverride) => {
 export function buildPriorityModel({
   ventasAnuales = [],
   metas = [],
-  exposicion = { 2022: 1, 2023: 1, 2024: 1, 2025: 1 },
+  exposicion = { 2022: 1, 2023: 1, 2024: 1 },
   horizon = 1,
   thresholds = { a: 0.6, b: 0.35 },
   family = 'auto',
@@ -239,7 +239,7 @@ export function buildPriorityModel({
     const vendorRows = grouped[linea] || new Map();
     const entries = Array.from(vendorRows.entries()).map(([vendor, rows]) => {
       const counts = rows.map((row) => row.ventas);
-      const exposures = rows.map((row) => exposicion[row.anio] ?? 1);
+      const exposures = rows.map((row) => (row.ventas > 0 ? exposicion[row.anio] ?? 1 : 0));
       const totalExposure = exposures.reduce((acc, value) => acc + value, 0);
       const nPeriods = exposures.filter((value) => value > 0).length || counts.length || 1;
       if (totalExposure <= 0) {
