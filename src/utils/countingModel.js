@@ -239,7 +239,7 @@ export function buildPriorityModel({
     const vendorRows = grouped[linea] || new Map();
     const entries = Array.from(vendorRows.entries()).map(([vendor, rows]) => {
       const counts = rows.map((row) => row.ventas);
-      const exposures = rows.map((row) => exposicion[row.anio] ?? 1);
+      const exposures = rows.map((row) => (row.ventas > 0 ? exposicion[row.anio] ?? 1 : 0));
       const totalExposure = exposures.reduce((acc, value) => acc + value, 0);
       const nPeriods = exposures.filter((value) => value > 0).length || counts.length || 1;
       if (totalExposure <= 0) {
