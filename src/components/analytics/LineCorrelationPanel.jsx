@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { BarChart3, Download, Info, Thermometer } from 'lucide-react';
 import { normalizeRecords, monthFromRecord, yearFromRecord } from '../../utils/dataParser.js';
 import Modal from '../ui/Modal.jsx';
+import RegressionComparisonModule from './RegressionComparisonModule.jsx';
 
 const LINES = ['Automóviles', 'Vans', 'Camiones', 'Buses'];
 const METRIC_OPTIONS = [
@@ -553,6 +554,22 @@ const LineCorrelationPanel = ({ records = [] }) => {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between mb-1">
+          <div>
+            <p className="text-xs uppercase text-slate-500">Modelo de regresión: independencia y solvencia de Autos</p>
+            <h4 className="text-base font-semibold text-slate-900">Coeficientes β editables y R²</h4>
+            <p className="text-sm text-slate-600">
+              Ajusta los dummies por categoría y obtén una conclusión automática sobre el peso de Autos frente al resto.
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs text-slate-600">
+            Conclusión automática y tabla resumen
+          </span>
+        </div>
+        <RegressionComparisonModule records={records} />
       </div>
 
       <Modal open={openModal} title="Metodología de correlación" onClose={() => setOpenModal(false)}>
