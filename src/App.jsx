@@ -17,6 +17,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Users,
+  BookOpen,
 } from 'lucide-react';
 import Header from './components/layout/Header.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
@@ -57,6 +58,7 @@ import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
 import MonteCarloMetaPanel from './components/analytics/MonteCarloMetaPanel.jsx';
 import LineCorrelationPanel from './components/analytics/LineCorrelationPanel.jsx';
 import ConclusionsPage from './components/conclusions/ConclusionsPage.jsx';
+import TechnicalIntroPage from './components/intro/TechnicalIntroPage.jsx';
 
 const heroSlides = [
   {
@@ -98,7 +100,7 @@ const App = () => {
   });
   const INITIAL_BOOTSTRAP = 5000;
   const [bootstrapIterations, setBootstrapIterations] = useState(INITIAL_BOOTSTRAP);
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState('intro');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
   const [showOutliers, setShowOutliers] = useState(true);
@@ -494,6 +496,7 @@ const App = () => {
   );
 
   const nav = [
+    { key: 'intro', label: 'Introducción técnica', icon: BookOpen },
     { key: 'dashboard', label: 'Panel principal', icon: LayoutDashboard },
     { key: 'counting', label: 'Modelo de conteo', icon: LineChart },
     { key: 'smc', label: 'SMC por meta', icon: BarChart3 },
@@ -632,7 +635,16 @@ const App = () => {
               </select>
             </div>
 
-            {activePage === 'dashboard' ? (
+            {activePage === 'intro' ? (
+              <TechnicalIntroPage
+                records={filteredRecords}
+                filters={filters}
+                outlierRule={outlierRule}
+                showOutliers={showOutliers}
+                bootstrapIterations={bootstrapIterations}
+                onNavigate={setActivePage}
+              />
+            ) : activePage === 'dashboard' ? (
               <div className="space-y-4">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
                 <div className="relative h-[320px] w-full">
