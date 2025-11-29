@@ -90,10 +90,10 @@ const extractYear = (value) => {
   const match = value.toString().match(/20\d{2}/);
   if (match) {
     const numeric = Number(match[0]);
-    if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
+    if ([2022, 2023, 2024].includes(numeric)) return numeric;
   }
   const numeric = Number(value);
-  if ([2022, 2023, 2024, 2025].includes(numeric)) return numeric;
+  if ([2022, 2023, 2024].includes(numeric)) return numeric;
   return undefined;
 };
 
@@ -217,7 +217,7 @@ const familyDecision = (mu, sigma2, familyOverride) => {
 export function buildPriorityModel({
   ventasAnuales = [],
   metas = [],
-  exposicion = { 2022: 1, 2023: 1, 2024: 1, 2025: 1 },
+  exposicion = { 2022: 1, 2023: 1, 2024: 1 },
   horizon = 1,
   thresholds = { a: 0.6, b: 0.35 },
   family = 'auto',
