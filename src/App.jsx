@@ -50,7 +50,6 @@ import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
 import VendorMultiSelect from './components/ui/VendorMultiSelect.jsx';
-import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
 import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
 import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
@@ -1113,37 +1112,6 @@ const App = () => {
                 </div>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase text-slate-500">🔍 Correlación y regresión comparativa entre categorías</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Interdependencia entre Autos, Vans, Camiones y Buses</h3>
-                  <p className="text-sm text-slate-600">
-                    Explora qué tan alineadas están las líneas de negocio entre sí y qué tan independiente es Autos frente al resto
-                    usando correlaciones y un modelo de regresión con variables dummy.
-                  </p>
-                </div>
-              </div>
-
-              <div className="card border border-slate-200/80 shadow-md">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs uppercase text-slate-500">Correlación entre categorías</p>
-                    <h4 className="text-base font-semibold text-slate-900">1 a 1 y 1 vs conjunto</h4>
-                    <p className="text-sm text-slate-600">
-                      Matrices y textos interpretativos que se recalculan automáticamente con los filtros activos.
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
-                    Incluye margen, ingresos, costos y unidades
-                  </span>
-                </div>
-                <CategoryCorrelationModule records={filteredRecords} />
-              </div>
-
-            </div>
-
             <div className="card border border-slate-200/80 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
