@@ -64,9 +64,9 @@ const tableBadgeColor = (p) => {
 
 const formatProb = (p) => `${(p * 100).toFixed(1)}%`;
 
-const formatSol = (value) =>
+const formatUsd = (value) =>
   Number.isFinite(value)
-    ? `S/ ${value.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ? `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : '—';
 
 const samplePoisson = (lambda) => {
@@ -723,12 +723,12 @@ const FomForecastPanel = ({ records = [] }) => {
                 <span className="text-sm text-slate-600">[{formatNumber(line.nP10)}–{formatNumber(line.nP90)}]</span>
               </p>
               <p className="font-semibold text-slate-900">
-                Ingresos esperados (P50): {formatSol(line.ingP50)}{' '}
-                <span className="text-sm text-slate-600">[{formatSol(line.ingP10)}–{formatSol(line.ingP90)}]</span>
+                Ingresos esperados (P50): {formatUsd(line.ingP50)}{' '}
+                <span className="text-sm text-slate-600">[{formatUsd(line.ingP10)}–{formatUsd(line.ingP90)}]</span>
               </p>
               <p className="font-semibold text-slate-900">
-                Margen esperado (P50): {formatSol(line.marP50)}{' '}
-                <span className="text-sm text-slate-600">[{formatSol(line.marP10)}–{formatSol(line.marP90)}]</span>
+                Margen esperado (P50): {formatUsd(line.marP50)}{' '}
+                <span className="text-sm text-slate-600">[{formatUsd(line.marP10)}–{formatUsd(line.marP90)}]</span>
               </p>
             </div>
             <p className="text-[11px] text-slate-600">
@@ -792,8 +792,8 @@ const FomForecastPanel = ({ records = [] }) => {
                       <span>{formatProb(item.probUnits)}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right text-slate-700">{formatSol(item.observed.mar_obs)}</td>
-                  <td className="px-3 py-2 text-right text-slate-700">{formatSol(item.observed.ing_obs)}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{formatUsd(item.observed.mar_obs)}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{formatUsd(item.observed.ing_obs)}</td>
                 </tr>
               ))}
             </tbody>
@@ -816,7 +816,7 @@ const FomForecastPanel = ({ records = [] }) => {
                     <li key={item.modelo} className="flex items-center justify-between">
                       <span className="font-semibold text-slate-900">{item.modelo}</span>
                       <span className="text-xs text-slate-500">
-                        +{item.delta} unid · Δ$ {formatSol(item.impacto)}
+                        +{item.delta} unid · Δ$ {formatUsd(item.impacto)}
                       </span>
                     </li>
                   ))}
@@ -840,7 +840,7 @@ const FomForecastPanel = ({ records = [] }) => {
                     <span className="font-semibold text-slate-900">{item.modelo}</span>
                     <span className="text-xs text-slate-500">{item.linea} · {item.vendedor}</span>
                   </div>
-                  <p className="text-xs text-slate-500">Margen_unit {formatSol(item.marginUnit)} · Δ$ recuperable {formatSol(item.recuperable)}</p>
+                  <p className="text-xs text-slate-500">Margen_unit {formatUsd(item.marginUnit)} · Δ$ recuperable {formatUsd(item.recuperable)}</p>
                 </li>
               ))}
             </ul>
