@@ -494,11 +494,12 @@ const App = () => {
   );
 
   const nav = [
-    { label: 'Visión general', icon: LayoutDashboard },
-    { label: 'Márgenes', icon: BarChart3 },
-    { label: 'Vendedores', icon: Users },
-    { label: 'Proyecciones', icon: LineChart },
-    { label: 'Categorias', icon: Layers },
+    { key: 'dashboard', label: 'Panel principal', icon: LayoutDashboard },
+    { key: 'counting', label: 'Modelo de conteo', icon: LineChart },
+    { key: 'fom', label: 'Pronóstico FOM', icon: Percent },
+    { key: 'correlations', label: 'Correlaciones entre líneas', icon: Activity },
+    { key: 'mix', label: 'Optimizador de mix', icon: Layers },
+    { key: 'smc', label: 'SMC por meta', icon: BarChart3 },
   ];
 
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
@@ -575,11 +576,17 @@ const App = () => {
           <nav className="space-y-1">
             {nav.map((item) => {
               const Icon = item.icon;
+              const active = activePage === item.key;
               return (
                 <button
-                  key={item.label}
+                  key={item.key}
                   type="button"
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm text-white/85 hover:bg-white/10 hover:text-white transition border border-white/5"
+                  onClick={() => setActivePage(item.key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-2xl text-sm transition border ${
+                    active
+                      ? 'bg-white text-black border-white shadow-lg shadow-celeste-500/20'
+                      : 'text-white/85 hover:bg-white/10 hover:text-white border-white/5'
+                  }`}
                 >
                   <Icon size={16} />
                   <span className="font-medium">{item.label}</span>
@@ -604,73 +611,19 @@ const App = () => {
           <div className="max-w-6xl mx-auto px-4 lg:px-8 py-8 space-y-6">
             <Header />
 
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => setActivePage('dashboard')}
-                className={`px-4 py-2 rounded-full border transition ${
-                  activePage === 'dashboard'
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
-                }`}
+            <div className="lg:hidden">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Selecciona pestaña</label>
+              <select
+                value={activePage}
+                onChange={(e) => setActivePage(e.target.value)}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm"
               >
-                Panel principal
-              </button>
-              <button
-                type="button"
-                onClick={() => setActivePage('counting')}
-                className={`px-4 py-2 rounded-full border transition ${
-                  activePage === 'counting'
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
-                }`}
-              >
-                Modelo de conteo con exposición
-              </button>
-              <button
-                type="button"
-                onClick={() => setActivePage('fom')}
-                className={`px-4 py-2 rounded-full border transition ${
-                  activePage === 'fom'
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
-                }`}
-              >
-                Pronóstico FOM y semáforo
-              </button>
-              <button
-                type="button"
-                onClick={() => setActivePage('correlations')}
-                className={`px-4 py-2 rounded-full border transition ${
-                  activePage === 'correlations'
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
-                }`}
-              >
-                Correlaciones entre líneas
-              </button>
-              <button
-                type="button"
-                onClick={() => setActivePage('mix')}
-                className={`px-4 py-2 rounded-full border transition ${
-                  activePage === 'mix'
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
-                }`}
-              >
-                Optimizador de mix
-              </button>
-              <button
-                type="button"
-                onClick={() => setActivePage('smc')}
-                className={`px-4 py-2 rounded-full border transition ${
-                  activePage === 'smc'
-                    ? 'bg-black text-white border-black'
-                    : 'bg-white text-slate-700 border-slate-200 hover:border-celeste-200 hover:text-celeste-700'
-                }`}
-              >
-                SMC por meta
-              </button>
+                {nav.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {activePage === 'dashboard' ? (
