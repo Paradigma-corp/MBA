@@ -6,6 +6,7 @@ import {
   BarChart3,
   Download,
   CloudUpload,
+  FileText,
   Home,
   MapPin,
   Menu,
@@ -55,6 +56,7 @@ import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
 import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
 import MonteCarloMetaPanel from './components/analytics/MonteCarloMetaPanel.jsx';
 import LineCorrelationPanel from './components/analytics/LineCorrelationPanel.jsx';
+import ConclusionsPage from './components/conclusions/ConclusionsPage.jsx';
 
 const heroSlides = [
   {
@@ -498,6 +500,7 @@ const App = () => {
     { key: 'fom', label: 'Pronóstico FOM', icon: Percent },
     { key: 'correlations', label: 'Correlaciones entre líneas', icon: Activity },
     { key: 'mix', label: 'Optimizador de mix', icon: Layers },
+    { key: 'conclusions', label: 'Conclusiones', icon: FileText },
   ];
 
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
@@ -1309,6 +1312,15 @@ const App = () => {
             <MixOptimizerPanel records={filteredRecords} />
           ) : activePage === 'smc' ? (
             <MonteCarloMetaPanel records={filteredRecords} />
+          ) : activePage === 'conclusions' ? (
+            <ConclusionsPage
+              records={filteredRecords}
+              marginSummaries={marginSummaries}
+              outlierRule={outlierRule}
+              showOutliers={showOutliers}
+              bootstrapIterations={bootstrapIterations}
+              activeFilterYears={filters.years}
+            />
           ) : (
             <FomForecastPanel records={filteredRecords} />
           )}
