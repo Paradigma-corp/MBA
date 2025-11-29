@@ -26,7 +26,7 @@ import {
   summarizeDiff,
 } from '../../utils/countingModel.js';
 
-const defaultExposure = { 2022: 1, 2023: 1, 2024: 1, 2025: 1 };
+const defaultExposure = { 2022: 1, 2023: 1, 2024: 1 };
 
 const ScenarioSlider = ({ label, value, onChange, min, max, step, suffix = '' }) => (
   <label className="flex flex-col gap-1 text-sm text-slate-700">
@@ -77,7 +77,6 @@ const sanitizeExposure = (raw = {}) => ({
   2022: safeExposure(raw[2022] ?? 1),
   2023: safeExposure(raw[2023] ?? 1),
   2024: safeExposure(raw[2024] ?? 1),
-  2025: safeExposure(raw[2025] ?? 1),
 });
 
 const scenarioName = (label, horizon, umbralA, umbralB, family) =>
@@ -143,7 +142,7 @@ const ChartBar = ({ label, value, color, maxValue = 1 }) => (
     return (
       <span
         className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-semibold ${colors[label] || colors.Baja}`}
-        title="Regla: Alta si ΣE ≥ 3 y λ̂ ≥ 5; Media si ΣE ∈ [2,3) o λ̂ ∈ [2,5); Baja en caso contrario"
+        title="Alta: historial largo y estable. Media: historial intermedio. Baja: pocos datos o historial corto."
       >
         Precisión {label}
       </span>
@@ -156,12 +155,12 @@ const ProbabilityCell = ({ entry }) => {
     ? ` ± ${(entry.errorMargin * 100).toFixed(entry.prob < 0.1 ? 2 : 1)}%`
     : '';
   const tooltip = entry.overconfident
-    ? 'Alta certeza por λ≫k'
+    ? 'Alta certeza porque su promedio supera ampliamente la meta'
     : entry.prob < 0.001
-    ? 'Baja probabilidad por k alto respecto a λ̂ y horizonte E'
+    ? 'Probabilidad muy baja frente a la meta'
     : entry.familia === 'negbin'
-    ? 'NB con banda de error por momentos'
-    : 'Poisson con exposición';
+    ? 'Usa NegBin porque la variación de ventas es alta'
+    : 'Usa Poisson con exposición por años vendidos';
   return (
     <div className="flex items-center justify-end gap-2">
       {warning && <AlertTriangle size={14} className="text-amber-500" title="Historial corto (&lt;3 años efectivos)" />}
@@ -225,7 +224,7 @@ const PriorityRow = ({ entry }) => {
       <td className="px-3 py-2 text-right text-slate-700 font-mono tabular-nums">
         <span
           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px]"
-          title="Auto decide con σ² vs μ (usa NB si Var(X) > Media(X)); también puedes forzar Poisson o NB"
+          title="El modelo se autoajusta; si quieres puedes forzar Poisson o NB."
         >
           {entry.modeloLabel}
         </span>
@@ -294,7 +293,7 @@ const downloadCsv = (entries) => {
 };
 
 const copyTable = (tableSummary) => {
-  const lines = ['Linea | # Vendedores | % Vend. | Mediana P | IQR | % Ventas | % Margen'];
+  const lines = ['Linea | # Vendedores | % Vend. | Probabilidad típica | Variabilidad | % Ventas | % Margen'];
   lines.push('---|---|---|---|---|---|---');
   tableSummary.forEach((row) => {
     lines.push(
@@ -305,7 +304,7 @@ const copyTable = (tableSummary) => {
 };
 
 const exportImages = (lineEntries, stackedSegments) => {
-  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: 2022–2025 H1. Elaboración propia.';
+  const apaFooter = 'Estimación Poisson/NB con exposición. Fuente: 2022–2024. Elaboración propia.';
   const createCanvasDownload = (title, bars) => {
     if (!bars.length) return;
     const width = 640;
@@ -442,6 +441,7 @@ const CountingExposurePanel = ({ records = [] }) => {
   const [scenarioA, setScenarioA] = useState(null);
   const [scenarioB, setScenarioB] = useState(null);
   const [compareMode, setCompareMode] = useState(false);
+  const [showMethod, setShowMethod] = useState(false);
   const scenarioDiff = useMemo(
     () => (scenarioA && scenarioB ? summarizeDiff(scenarioA.rows, scenarioB.rows) : null),
     [scenarioA, scenarioB],
@@ -602,21 +602,28 @@ const CountingExposurePanel = ({ records = [] }) => {
       <div className="card border border-slate-200 shadow-lg">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="space-y-2">
-            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Nueva vista</p>
-            <h2 className="text-2xl font-semibold text-slate-900">Modelo de conteo con exposición</h2>
-            <p className="text-sm text-slate-600 max-w-3xl">
-              Calcula P(X ≥ k) por vendedor dentro de cada línea (Autos, Vans, Camiones, Buses) usando Poisson o Negativa
-              Binomial con exposición anual (E). Segmentar A/B/C, estimar el Índice de Prioridad Operativa y exportar Tabla
-              3.1 y Figuras 3.1–3.3 para discusión en clase.
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Vista simplificada</p>
+            <h2 className="text-2xl font-semibold text-slate-900">Probabilidad de Cumplir la Meta (por Vendedor)</h2>
+            <p className="text-sm text-slate-700 max-w-3xl">
+              “Este módulo calcula, para cada vendedor, la probabilidad de cumplir su meta anual de unidades usando datos
+              históricos de ventas. No requiere conocimientos estadísticos: el modelo elige automáticamente el método adecuado y
+              clasifica a los vendedores en A, B y C según su probabilidad.”
             </p>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900 mb-1">¿Qué hace este módulo?</p>
+              <p>
+                Calcula la probabilidad de que cada vendedor llegue a su meta anual, según sus ventas de años anteriores. Con eso
+                clasifica al equipo en A, B o C y ayuda a planificar metas, asignar casos y priorizar soporte.
+              </p>
+            </div>
           </div>
           <div className="flex flex-col items-end gap-2 text-right">
             <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-800">
               <Layers size={16} /> Sin reasignación entre líneas
             </div>
             <p className="text-xs text-slate-600 max-w-xs text-right">
-              Estimación de P(X ≥ k) por vendedor con Poisson (o NB si hay sobredispersión) y exposición anual. Segmentos A/B/C y
-              PriorityIndex integran probabilidad, margen relativo y riesgo por línea.
+              Usa historiales de ventas por vendedor y calcula la probabilidad de llegar a la meta, sin que tengas que escoger la
+              familia estadística.
             </p>
             <Pill>E = {horizon.toFixed(2)} años</Pill>
           </div>
@@ -627,180 +634,243 @@ const CountingExposurePanel = ({ records = [] }) => {
             <div className="h-10 w-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-700">
               <Activity size={18} />
             </div>
-            <div className="text-sm text-slate-700">
-              <p className="text-xs uppercase text-slate-500">Probabilidad con exposición</p>
-              <p className="font-semibold">Poisson o NB según sobredispersión</p>
-              <p>Diagnóstico σ² vs μ y cálculo de P(X ≥ k) con E definido.</p>
+              <div className="text-sm text-slate-700">
+                <p className="text-xs uppercase text-slate-500">Probabilidad con exposición</p>
+                <p className="font-semibold">El modelo calcula cuántas ventas hace cada vendedor por año y estima la probabilidad de que llegue a la meta.</p>
+                <p>Cuenta solo los años donde realmente vendió para estimar sus probabilidades.</p>
+              </div>
             </div>
-          </div>
           <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50 flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-700">
               <BarChart3 size={18} />
             </div>
             <div className="text-sm text-slate-700">
               <p className="text-xs uppercase text-slate-500">Segmentación A/B/C</p>
-              <p className="font-semibold">Umbrales configurables</p>
-              <p>Clasificación directa por probabilidad de cumplimiento.</p>
+              <p className="font-semibold">Clasifica automáticamente al equipo.</p>
+              <p>A: alta probabilidad, B: media, C: baja.</p>
             </div>
           </div>
           <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50 flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-700">
               <Info size={18} />
             </div>
-            <div className="text-sm text-slate-700">
-              <p className="text-xs uppercase text-slate-500">Índice de Prioridad</p>
-              <p className="font-semibold">0.60·P + 0.25·MargenRel + 0.15·(1-Variab)</p>
-              <p>Resume riesgo, margen relativo y variabilidad por línea.</p>
+              <div className="text-sm text-slate-700">
+                <p className="text-xs uppercase text-slate-500">Índice de Prioridad</p>
+                <p className="font-semibold">Te ayuda a decidir a quién atender primero.</p>
+                <p>Combina probabilidad, margen y estabilidad del desempeño.</p>
+              </div>
             </div>
-          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div className="card border border-slate-200 shadow-md">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
-            <select
-              value={selectedLine}
-              onChange={(e) => setSelectedLine(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              {CORE_LINES.map((line) => (
-                <option key={line}>{line}</option>
-              ))}
-            </select>
-            <select
-              value={family}
-              onChange={(e) => setFamily(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <option value="auto">Familia: Auto (σ² vs μ)</option>
-              <option value="poisson">Forzar Poisson</option>
-              <option value="negbin">Forzar NegBin</option>
-            </select>
-            <div className="flex items-center gap-2 text-sm text-slate-700">
-              <label className="font-medium">E (años)</label>
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={horizon}
-                onChange={(e) => setHorizon(Math.max(0.1, Number(e.target.value)))}
-                className="w-24 rounded-lg border border-slate-200 px-2 py-1"
-              />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] uppercase text-slate-500">¿Qué línea quiero analizar?</p>
+                <Info size={14} className="text-slate-400" title="Selecciona la línea que quieres analizar. Todo se recalcula solo para esa línea." />
+              </div>
+              <select
+                value={selectedLine}
+                onChange={(e) => setSelectedLine(e.target.value)}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+              >
+                {CORE_LINES.map((line) => (
+                  <option key={line}>{line}</option>
+                ))}
+              </select>
             </div>
-            <div className="flex items-center gap-2 text-sm text-slate-700">
-              <label className="font-medium">Umbral A</label>
-              <input
-                type="number"
-                min="0"
-                max="1"
-                step="0.01"
-                value={umbralA}
-                onChange={(e) => setUmbralA(Math.min(1, Math.max(0, Number(e.target.value))))}
-                className="w-20 rounded-lg border border-slate-200 px-2 py-1"
-              />
-              <label className="font-medium">Umbral B</label>
-              <input
-                type="number"
-                min="0"
-                max={umbralA}
-                step="0.01"
-                value={umbralB}
-                onChange={(e) => setUmbralB(Math.min(umbralA - 0.01, Math.max(0, Number(e.target.value))))}
-                className="w-20 rounded-lg border border-slate-200 px-2 py-1"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setUmbralA(0.6);
-                setUmbralB(0.35);
-                setFamily('auto');
-              }}
-              className="inline-flex items-center gap-1 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-700"
-            >
-              <RefreshCw size={14} /> Valores curso
-            </button>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
-                <ArrowUpRight size={16} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
+                  <ArrowUpRight size={16} />
+                </div>
+                <div className="text-sm text-slate-700">
+                  <div className="flex items-center gap-1">
+                    <p className="font-semibold">Meta k{currentMeta ? ` (${selectedLine})` : ''}</p>
+                    <Info size={14} className="text-slate-400" title="Esta es la meta anual de unidades que quieres evaluar para cada vendedor." />
+                  </div>
+                  <p className="text-slate-600">Meta anual en unidades para la línea elegida.</p>
+                  <input
+                    type="number"
+                    min="0"
+                    value={currentMeta?.k ?? 0}
+                    onChange={(e) => updateMeta(selectedLine, 'k', Number(e.target.value))}
+                    className="mt-2 w-32 rounded-lg border border-slate-200 px-3 py-2"
+                  />
+                </div>
               </div>
-              <div className="text-sm text-slate-700">
-                <p className="font-semibold">Meta k{currentMeta ? ` (${selectedLine})` : ''}</p>
-                <p className="text-slate-600">Ajusta la meta anual de unidades para esta línea.</p>
-                <input
-                  type="number"
-                  min="0"
-                  value={currentMeta?.k ?? 0}
-                  onChange={(e) => updateMeta(selectedLine, 'k', Number(e.target.value))}
-                  className="mt-2 w-32 rounded-lg border border-slate-200 px-3 py-2"
-                />
-              </div>
-            </div>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
-              <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
-                <SlidersHorizontal size={16} />
-              </div>
-              <div className="text-sm text-slate-700 space-y-1">
-                <p className="font-semibold">Exposición por año (E=1.0)</p>
-                <div className="flex gap-2 flex-wrap text-xs">
-                  {Object.entries(exposure).map(([year, value]) => (
-                    <label key={year} className="flex items-center gap-1">
-                      <span className="text-slate-500">{year}</span>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
+                  <BarChart3 size={16} />
+                </div>
+                <div className="text-sm text-slate-700 w-full">
+                  <div className="flex items-center gap-1">
+                    <p className="font-semibold">Umbrales A/B</p>
+                    <Info size={14} className="text-slate-400" title="Definen cuándo un vendedor es A, B o C según su probabilidad de cumplir la meta." />
+                  </div>
+                  <p className="text-slate-600">Ajusta los cortes para A y B. C es lo que queda.</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <span>Umbral A</span>
                       <input
                         type="number"
                         min="0"
-                        step="0.1"
-                        value={value}
-                        onChange={(e) =>
-                          setExposure((prev) => ({ ...prev, [year]: Math.max(0, Number(e.target.value)) }))
-                        }
+                        max="1"
+                        step="0.01"
+                        value={umbralA}
+                        onChange={(e) => setUmbralA(Math.min(1, Math.max(0, Number(e.target.value))))}
                         className="w-20 rounded-lg border border-slate-200 px-2 py-1"
                       />
                     </label>
-                  ))}
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <span>Umbral B</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max={umbralA}
+                        step="0.01"
+                        value={umbralB}
+                        onChange={(e) => setUmbralB(Math.min(umbralA - 0.01, Math.max(0, Number(e.target.value))))}
+                        className="w-20 rounded-lg border border-slate-200 px-2 py-1"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUmbralA(0.6);
+                        setUmbralB(0.35);
+                        setFamily('auto');
+                      }}
+                      className="inline-flex items-center gap-1 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-700"
+                    >
+                      <RefreshCw size={14} /> Valores curso
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <ScenarioSlider label="Escenario λ (±50%)" value={lambdaScale} onChange={setLambdaScale} min={0.5} max={1.5} step={0.05} />
-            <ScenarioSlider label="Ajuste k (±3)" value={kShift} onChange={setKShift} min={-3} max={3} step={1} suffix=" u." />
-            <ScenarioSlider label="Horizonte E (años)" value={horizon} onChange={setHorizon} min={0.5} max={2} step={0.1} />
-          </div>
-          <div className="flex justify-end mt-3">
-            <button
-              type="button"
-              onClick={resetScenarios}
-              className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-700"
-            >
-              <RefreshCw size={14} /> Reset escenarios
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
+                  <SlidersHorizontal size={16} />
+                </div>
+                <div className="text-sm text-slate-700 w-full">
+                  <div className="flex items-center gap-1">
+                    <p className="font-semibold">Exposición por año</p>
+                    <Info size={14} className="text-slate-400" title="Representa cuántos años de ventas tiene cada vendedor. Solo se cuenta el año cuando realmente vendió." />
+                  </div>
+                  <p className="text-slate-600">Años efectivos de ventas por vendedor.</p>
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {Object.keys(exposure).map((year) => (
+                      <label key={year} className="flex flex-col text-xs text-slate-700">
+                        <span className="font-semibold">{year}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="2"
+                          step="0.1"
+                          value={exposure[year]}
+                          onChange={(e) =>
+                            setExposure((prev) => ({ ...prev, [year]: sanitizeExposure({ [year]: e.target.value })[year] }))
+                          }
+                          className="mt-1 rounded-lg border border-slate-200 px-2 py-1"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExposure(defaultExposure)}
+                    className="mt-2 text-xs text-celeste-600 hover:text-celeste-700"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-700">
+                  <Activity size={16} />
+                </div>
+                <div className="text-sm text-slate-700 w-full">
+                  <div className="flex items-center gap-1">
+                    <p className="font-semibold">Familia del modelo</p>
+                    <Info size={14} className="text-slate-400" title="El modelo elige automáticamente la mejor opción según los datos. No necesitas cambiarlo." />
+                  </div>
+                  <p className="text-slate-600">Por defecto se elige sola la opción correcta.</p>
+                  <select
+                    value={family}
+                    onChange={(e) => setFamily(e.target.value)}
+                    className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm w-full"
+                  >
+                    <option value="auto">Auto (recomendado)</option>
+                    <option value="poisson">Forzar Poisson</option>
+                    <option value="negbin">Forzar NegBin</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] uppercase text-slate-500">¿Quiero simular escenarios?</p>
+                <Info
+                  size={14}
+                  className="text-slate-400"
+                  title="Sirven para simular escenarios: más ventas, metas más duras o periodos más cortos."
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <ScenarioSlider label="Ventas simuladas (λ)" value={lambdaScale} onChange={setLambdaScale} min={0.5} max={1.5} step={0.05} />
+                <ScenarioSlider label="Meta simulada (k)" value={kShift} onChange={setKShift} min={-3} max={3} step={1} suffix=" u." />
+                <ScenarioSlider label="Horizonte simulado (E)" value={horizon} onChange={setHorizon} min={0.5} max={2} step={0.1} />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={resetScenarios}
+                  className="inline-flex items-center gap-2 text-xs px-3 py-2 rounded-full border border-slate-200 text-slate-700"
+                >
+                  <RefreshCw size={14} /> Reset escenarios
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="card border border-slate-200 shadow-md space-y-3">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[11px] uppercase text-slate-500">Nota metodológica</p>
-              <h3 className="text-base font-semibold text-slate-900">Poisson / NegBin con exposición</h3>
+              <p className="text-[11px] uppercase text-slate-500">Notas metodológicas</p>
+              <h3 className="text-base font-semibold text-slate-900">Explicación técnica (opcional)</h3>
+              <p className="text-sm text-slate-700 mt-1">Haz clic para ver detalles.</p>
             </div>
-            <AlertCircle className="text-slate-400" size={20} />
+            <button
+              type="button"
+              onClick={() => setShowMethod((prev) => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-full border border-slate-200 text-sm text-slate-700"
+              aria-expanded={showMethod}
+            >
+              <AlertCircle className="text-slate-400" size={18} /> {showMethod ? 'Ocultar' : 'Ver'}
+            </button>
           </div>
-          <p className="text-sm text-slate-700">
-            P(X ≥ k) se estima con Poisson (o NB si hay sobredispersión). λ̂ = Σ ventas / Σ exposición; NB usa método de momentos
-            (r̂, p̂). Segmentos: A ≥ {formatPercentage(umbralA)}, B entre {formatPercentage(umbralB)} y {formatPercentage(umbralA)}.
-            Índice de Prioridad = 0.60·P + 0.25·MargenRelℓ + 0.15·(1−Variabℓ). Exporta Tabla 3.1 y Figuras 3.1–3.3.
-          </p>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-            <Pill>E=1.0 por defecto</Pill>
-            <Pill>Sin reasignación entre líneas</Pill>
-            <Pill>Períodos 2022–2024</Pill>
-          </div>
+          {showMethod && (
+            <>
+              <p className="text-sm text-slate-700">
+                El modelo estima la probabilidad de cumplir la meta anual con Poisson o NegBin (se elige sola según sobredispersión),
+                usando λ̂ = Σ ventas / Σ exposición. Los segmentos A/B/C dependen de los umbrales configurados. El Índice de Prioridad
+                combina probabilidad, margen relativo y estabilidad.
+              </p>
+              <div className="flex flex-wrap gap-2 text-xs text-slate-600">
+                <Pill>E=1.0 por defecto</Pill>
+                <Pill>Sin reasignación entre líneas</Pill>
+                <Pill>Períodos 2022–2024</Pill>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -919,45 +989,37 @@ const CountingExposurePanel = ({ records = [] }) => {
               <tr>
                 <th className="px-3 py-3 text-left">Vendedor</th>
                 <th className="px-3 py-3 text-right">Familia</th>
-                <th className="px-3 py-3 text-right">
-                  <span className="inline-flex items-center gap-1">
-                    Tasa λ̂ (ventas/año)
-                    <Info size={12} className="text-slate-400" title="λ̂ = Σ ventas / Σ exposición" />
-                  </span>
-                </th>
-                <th className="px-3 py-3 text-right">
-                  <span className="inline-flex items-center gap-1">
-                    Exposición ΣE
-                    <Info size={12} className="text-slate-400" title="Años efectivos considerados" />
-                  </span>
-                </th>
-                <th className="px-3 py-3 text-right">
-                  <span className="inline-flex items-center gap-1">
+                  <th className="px-3 py-3 text-right">
+                    <span className="inline-flex items-center gap-1">
+                      Ventas por año (estimado)
+                      <Info size={12} className="text-slate-400" title="Promedio anual según su historial." />
+                    </span>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <span className="inline-flex items-center gap-1">
+                      Años con ventas
+                      <Info size={12} className="text-slate-400" title="Solo cuenta los años donde realmente vendió." />
+                    </span>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <span className="inline-flex items-center gap-1">
                     k meta (unid/año)
                     <Info size={12} className="text-slate-400" title="Meta anual definida para la línea" />
-                  </span>
-                </th>
-                <th className="px-3 py-3 text-right">
-                  <span className="inline-flex items-center gap-1">
-                    Prob. de cumplir la meta
-                    <Info
-                      size={12}
-                      className="text-slate-400"
-                      title="Poisson o NB con exposición; si NB muestra banda de error"
-                    />
-                  </span>
-                </th>
-                <th className="px-3 py-3 text-left">Segmento</th>
-                <th className="px-3 py-3 text-right">
-                  <span className="inline-flex items-center gap-1">
-                    Índice
-                    <Info
-                      size={12}
-                      className="text-slate-400"
-                      title="0.60·P + 0.25·MargenRel + 0.15·(1−Variab)"
-                    />
-                  </span>
-                </th>
+                    </span>
+                  </th>
+                  <th className="px-3 py-3 text-right">
+                    <span className="inline-flex items-center gap-1">
+                    Probabilidad de cumplir la meta
+                    <Info size={12} className="text-slate-400" title="Probabilidad de llegar a la meta con los años de ventas registrados." />
+                    </span>
+                  </th>
+                  <th className="px-3 py-3 text-left">Segmento</th>
+                  <th className="px-3 py-3 text-right">
+                    <span className="inline-flex items-center gap-1">
+                    Prioridad
+                    <Info size={12} className="text-slate-400" title="Más alto = mayor impacto si recibe metas, leads o soporte." />
+                    </span>
+                  </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
@@ -982,23 +1044,26 @@ const CountingExposurePanel = ({ records = [] }) => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] uppercase text-slate-500">Tabla 3.1</p>
-              <h4 className="text-base font-semibold text-slate-900">Segmentación y distribución por línea</h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-base font-semibold text-slate-900">Resumen por línea</h4>
+                <Info size={14} className="text-slate-400" title="Esta tabla resume cuántos vendedores tiene cada línea, su probabilidad típica y su aporte en ventas y margen." />
+              </div>
             </div>
             <Pill>Mediana + IQR</Pill>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="min-w-full text-sm">
-              <thead className="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-[0.08em]">
-                <tr>
-                  <th className="px-3 py-3 text-left">Línea</th>
-                  <th className="px-3 py-3 text-right"># Vend.</th>
-                  <th className="px-3 py-3 text-right">% Vend.</th>
-                  <th className="px-3 py-3 text-right">Mediana P</th>
-                  <th className="px-3 py-3 text-right">IQR</th>
-                  <th className="px-3 py-3 text-right">% Ventas</th>
-                  <th className="px-3 py-3 text-right">% Margen</th>
-                </tr>
-              </thead>
+                <thead className="bg-slate-100 text-slate-600 text-[11px] uppercase tracking-[0.08em]">
+                  <tr>
+                    <th className="px-3 py-3 text-left">Línea</th>
+                    <th className="px-3 py-3 text-right"># Vend.</th>
+                    <th className="px-3 py-3 text-right">% Vend.</th>
+                    <th className="px-3 py-3 text-right">Probabilidad típica</th>
+                    <th className="px-3 py-3 text-right">Variabilidad</th>
+                    <th className="px-3 py-3 text-right">Participación en ventas</th>
+                    <th className="px-3 py-3 text-right">Participación en margen</th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
                 {results.tableSummary.map((row) => (
                   <tr key={row.linea} className="hover:bg-slate-50">
@@ -1029,7 +1094,10 @@ const CountingExposurePanel = ({ records = [] }) => {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-[11px] uppercase text-slate-500">Figura 3.1</p>
-                <h4 className="text-base font-semibold text-slate-900">P(X ≥ k) por vendedor</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-semibold text-slate-900">¿Quiénes tienen más probabilidad de cumplir la meta?</h4>
+                  <Info size={14} className="text-slate-400" title="Muestra a los vendedores más fuertes según su desempeño histórico." />
+                </div>
               </div>
               <Pill>Umbrales A/B/C</Pill>
             </div>
@@ -1045,7 +1113,10 @@ const CountingExposurePanel = ({ records = [] }) => {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-[11px] uppercase text-slate-500">Figura 3.2</p>
-                <h4 className="text-base font-semibold text-slate-900">Stack A/B/C por línea</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-semibold text-slate-900">Composición del equipo (A/B/C)</h4>
+                  <Info size={14} className="text-slate-400" title="Qué porcentaje del equipo tiene probabilidad alta, media o baja." />
+                </div>
               </div>
               <Pill>Segmentación</Pill>
             </div>
@@ -1065,7 +1136,10 @@ const CountingExposurePanel = ({ records = [] }) => {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="text-[11px] uppercase text-slate-500">Figura 3.3</p>
-                <h4 className="text-base font-semibold text-slate-900">Ranking Índice de Prioridad</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-semibold text-slate-900">Prioridad operativa por vendedor</h4>
+                  <Info size={14} className="text-slate-400" title="Ayuda a decidir dónde enfocarse primero." />
+                </div>
               </div>
               <Pill>0.60·P + 0.25·MargenRel + 0.15·(1−Variab)</Pill>
             </div>

@@ -152,6 +152,7 @@ const BUSINESS_LINE_KEYS = [
 ];
 
 const YEAR_KEYS = ['año', 'ano', 'anio', 'year', 'periodo', 'período'];
+const MONTH_KEYS = ['mes', 'mes_num', 'month'];
 
 const CONDITION_KEYS = ['nuevo/usado', 'nuevo o usado', 'condición', 'condicion', 'estado unidad'];
 
@@ -164,6 +165,20 @@ export const yearFromRecord = (record = {}) => {
 
   const entries = Object.entries(record);
   for (const lowerKey of YEAR_KEYS) {
+    const found = getEntryCaseInsensitive(entries, lowerKey);
+    if (!found) continue;
+    const parsed = parseNumber(found[1]);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return undefined;
+};
+
+export const monthFromRecord = (record = {}) => {
+  if (Number.isFinite(record.Mes)) return record.Mes;
+
+  const entries = Object.entries(record);
+  for (const lowerKey of MONTH_KEYS) {
     const found = getEntryCaseInsensitive(entries, lowerKey);
     if (!found) continue;
     const parsed = parseNumber(found[1]);
