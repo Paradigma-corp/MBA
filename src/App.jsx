@@ -496,10 +496,10 @@ const App = () => {
   const nav = [
     { key: 'dashboard', label: 'Panel principal', icon: LayoutDashboard },
     { key: 'counting', label: 'Modelo de conteo', icon: LineChart },
+    { key: 'smc', label: 'SMC por meta', icon: BarChart3 },
     { key: 'fom', label: 'Pronóstico FOM', icon: Percent },
     { key: 'correlations', label: 'Correlaciones entre líneas', icon: Activity },
     { key: 'mix', label: 'Optimizador de mix', icon: Layers },
-    { key: 'smc', label: 'SMC por meta', icon: BarChart3 },
   ];
 
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
