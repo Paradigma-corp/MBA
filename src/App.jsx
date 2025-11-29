@@ -6,6 +6,7 @@ import {
   BarChart3,
   Download,
   CloudUpload,
+  FileText,
   Home,
   MapPin,
   Menu,
@@ -16,6 +17,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Users,
+  BookOpen,
 } from 'lucide-react';
 import Header from './components/layout/Header.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
@@ -50,13 +52,13 @@ import CorrelationBars from './components/charts/CorrelationBars.jsx';
 import CorrelationScatter from './components/charts/CorrelationScatter.jsx';
 import Modal from './components/ui/Modal.jsx';
 import VendorMultiSelect from './components/ui/VendorMultiSelect.jsx';
-import CategoryCorrelationModule from './components/analytics/CategoryCorrelationModule.jsx';
-import RegressionComparisonModule from './components/analytics/RegressionComparisonModule.jsx';
 import CountingExposurePanel from './components/analytics/CountingExposurePanel.jsx';
 import FomForecastPanel from './components/analytics/FomForecastPanel.jsx';
 import MixOptimizerPanel from './components/analytics/MixOptimizerPanel.jsx';
 import MonteCarloMetaPanel from './components/analytics/MonteCarloMetaPanel.jsx';
 import LineCorrelationPanel from './components/analytics/LineCorrelationPanel.jsx';
+import ConclusionsPage from './components/conclusions/ConclusionsPage.jsx';
+import TechnicalIntroPage from './components/intro/TechnicalIntroPage.jsx';
 
 const heroSlides = [
   {
@@ -98,7 +100,7 @@ const App = () => {
   });
   const INITIAL_BOOTSTRAP = 5000;
   const [bootstrapIterations, setBootstrapIterations] = useState(INITIAL_BOOTSTRAP);
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState('intro');
   const [activeSlide, setActiveSlide] = useState(0);
   const [activeModal, setActiveModal] = useState(null);
   const [showOutliers, setShowOutliers] = useState(true);
@@ -494,12 +496,14 @@ const App = () => {
   );
 
   const nav = [
+    { key: 'intro', label: 'Introducción técnica', icon: BookOpen },
     { key: 'dashboard', label: 'Panel principal', icon: LayoutDashboard },
     { key: 'counting', label: 'Modelo de conteo', icon: LineChart },
+    { key: 'smc', label: 'SMC por meta', icon: BarChart3 },
     { key: 'fom', label: 'Pronóstico FOM', icon: Percent },
     { key: 'correlations', label: 'Correlaciones entre líneas', icon: Activity },
     { key: 'mix', label: 'Optimizador de mix', icon: Layers },
-    { key: 'smc', label: 'SMC por meta', icon: BarChart3 },
+    { key: 'conclusions', label: 'Conclusiones', icon: FileText },
   ];
 
   const modalConfig = activeModal ? modalDetails[activeModal] : null;
@@ -631,7 +635,16 @@ const App = () => {
               </select>
             </div>
 
-            {activePage === 'dashboard' ? (
+            {activePage === 'intro' ? (
+              <TechnicalIntroPage
+                records={filteredRecords}
+                filters={filters}
+                outlierRule={outlierRule}
+                showOutliers={showOutliers}
+                bootstrapIterations={bootstrapIterations}
+                onNavigate={setActivePage}
+              />
+            ) : activePage === 'dashboard' ? (
               <div className="space-y-4">
               <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]">
                 <div className="relative h-[320px] w-full">
@@ -1114,52 +1127,6 @@ const App = () => {
                 </div>
               </div>
             </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase text-slate-500">🔍 Correlación y regresión comparativa entre categorías</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Interdependencia entre Autos, Vans, Camiones y Buses</h3>
-                  <p className="text-sm text-slate-600">
-                    Explora qué tan alineadas están las líneas de negocio entre sí y qué tan independiente es Autos frente al resto
-                    usando correlaciones y un modelo de regresión con variables dummy.
-                  </p>
-                </div>
-              </div>
-
-              <div className="card border border-slate-200/80 shadow-md">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs uppercase text-slate-500">Correlación entre categorías</p>
-                    <h4 className="text-base font-semibold text-slate-900">1 a 1 y 1 vs conjunto</h4>
-                    <p className="text-sm text-slate-600">
-                      Matrices y textos interpretativos que se recalculan automáticamente con los filtros activos.
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
-                    Incluye margen, ingresos, costos y unidades
-                  </span>
-                </div>
-                <CategoryCorrelationModule records={filteredRecords} />
-              </div>
-
-              <div className="card border border-slate-200/80 shadow-md">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs uppercase text-slate-500">Modelo de regresión: independencia y solvencia de Autos</p>
-                    <h4 className="text-base font-semibold text-slate-900">Coeficientes β editables y R²</h4>
-                    <p className="text-sm text-slate-600">
-                      Ajusta los dummies por categoría y obtén una conclusión automática sobre el peso de Autos frente al resto.
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-white border border-slate-200 text-xs text-slate-600">
-                    Conclusión automática y tabla resumen
-                  </span>
-                </div>
-                <RegressionComparisonModule records={filteredRecords} />
-              </div>
-            </div>
-
             <div className="card border border-slate-200/80 shadow-md">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -1357,6 +1324,8 @@ const App = () => {
             <MixOptimizerPanel records={filteredRecords} />
           ) : activePage === 'smc' ? (
             <MonteCarloMetaPanel records={filteredRecords} />
+          ) : activePage === 'conclusions' ? (
+            <ConclusionsPage />
           ) : (
             <FomForecastPanel records={filteredRecords} />
           )}
