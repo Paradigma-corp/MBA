@@ -1325,14 +1325,7 @@ const App = () => {
           ) : activePage === 'smc' ? (
             <MonteCarloMetaPanel records={filteredRecords} />
           ) : activePage === 'conclusions' ? (
-            <ConclusionsPage
-              records={filteredRecords}
-              marginSummaries={marginSummaries}
-              outlierRule={outlierRule}
-              showOutliers={showOutliers}
-              bootstrapIterations={bootstrapIterations}
-              activeFilterYears={filters.years}
-            />
+            <ConclusionsPage />
           ) : (
             <FomForecastPanel records={filteredRecords} />
           )}
